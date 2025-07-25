@@ -3,6 +3,7 @@ import sqlite3
 import json
 import requests
 import re
+import
 from flask import Flask, request, render_template, send_from_directory, redirect, url_for, flash, session, jsonify
 from werkzeug.utils import secure_filename
 from datetime import datetime
@@ -13,7 +14,7 @@ app.secret_key = 'your_super_secret_key_here_please_change_me_in_production'
 
 # Configuration
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
-ALLOWED_EXTENSIONS = {'exe', 'nes', 'bin', 'sfc', 'smc', 'gba', 'gbc', 'gb', 'iso', 'zip', 'rom'}
+ALLOWED_EXTENSIONS = {'exe', 'nes', 'bin', 'sfc', 'smc', 'gba', 'gbc', 'gb', 'iso', 'zip', 'rom', 'md', 'n64', 'z64', 'v64', 'nds', 'ps1', 'cue', 'ccd', 'img', 'mdf', 'chd', 'dsk', 'adf', 'atr'} # Added more for scanner
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # New: Configuration for custom cover uploads
@@ -62,7 +63,8 @@ def save_api_config():
 SYSTEMS = [
     'Super Nintendo', 'Nintendo Entertainment System', 'Game Boy', 'Game Boy Color',
     'Game Boy Advance', 'Nintendo 64', 'PlayStation 1', 'PlayStation 2',
-    'Sega Genesis', 'Sega Master System', 'Atari 2600', 'Other'
+    'Sega Genesis', 'Sega Master System', 'Atari 2600', 'Other',
+    'Nintendo DS', 'PSP', 'Sega Dreamcast', 'Arcade' # Added more systems based on new extensions
 ]
 
 # Available themes
@@ -91,7 +93,7 @@ def init_db():
                       cover_url TEXT,
                       upload_date TEXT,
                       system TEXT,
-                      file_path TEXT)''')
+                      file_path TEXT UNIQUE)''') # Added UNIQUE constraint to file_path
     
     # Settings table for user preferences
     conn.execute('''CREATE TABLE IF NOT EXISTS settings
@@ -333,8 +335,16 @@ def upload_game():
                 filename = secure_filename(file.filename)
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 
+                # Check if file path already exists in DB *before* saving
+                conn_check = get_db_connection()
+                existing_game_db = conn_check.execute('SELECT id FROM games WHERE file_path = ?', (filepath,)).fetchone()
+                conn_check.close()
+                if existing_game_db:
+                    failed_uploads.append(f'"{filename}" (already exists in library)')
+                    continue # Skip to next file
+
                 if os.path.exists(filepath):
-                    failed_uploads.append(f'"{filename}" (already exists)')
+                    failed_uploads.append(f'"{filename}" (file already exists on disk)')
                     continue # Skip to next file
 
                 try:
@@ -361,7 +371,7 @@ def upload_game():
                                 description = found_details['description'] # Overwrite if found
                         else:
                             print(f'Warning: Could not find auto metadata for "{current_game_title}"') # Log, but don't flash for every one in batch
-                    
+                        
                     conn = get_db_connection()
                     try:
                         conn.execute('INSERT INTO games (filename, title, description, system, file_path, upload_date, cover_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -409,10 +419,10 @@ def settings():
         return redirect(url_for('settings'))
     
     return render_template('settings.html', 
-                            theme=current_theme, 
-                            themes=THEMES, 
-                            api_config=API_CONFIG, 
-                            datetime=datetime)
+                             theme=current_theme, 
+                             themes=THEMES, 
+                             api_config=API_CONFIG, 
+                             datetime=datetime)
 
 @app.route('/edit/<int:game_id>', methods=['GET', 'POST'])
 def edit_game(game_id):
@@ -498,7 +508,7 @@ def edit_game(game_id):
         else: # If auto-metadata is NOT toggled on, then use the URL from the form text field
             # This applies if no new file uploaded and auto-detect is off
             if not uploaded_cover_url and request.form.get('cover_url_cleared') != 'true':
-                 cover_url = request.form['cover_url'].strip() # Get the URL from the text input
+                cover_url = request.form['cover_url'].strip() # Get the URL from the text input
 
 
         try:
@@ -563,12 +573,19 @@ def delete_game(game_id):
     game = conn.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
     if game:
         # Delete the associated game file from the uploads folder
-        if os.path.exists(game['file_path']):
+        # NOTE: If your scanner uses arbitrary file paths, this might not
+        # delete files outside of UPLOAD_FOLDER unless you explicitly manage it.
+        # This current logic assumes files are *within* UPLOAD_FOLDER if managed by Flask's upload route.
+        # If your scanner stores direct paths and those are outside UPLOAD_FOLDER,
+        # you might need to adjust this or rely on manual cleanup.
+        if os.path.exists(game['file_path']) and game['file_path'].startswith(app.config['UPLOAD_FOLDER']):
             try:
                 os.remove(game['file_path'])
                 flash(f'Game file "{os.path.basename(game["file_path"])}" deleted.', 'info')
             except OSError as e:
                 flash(f'Error deleting file: {e}', 'error')
+        elif not game['file_path'].startswith(app.config['UPLOAD_FOLDER']):
+            flash(f'Game file "{os.path.basename(game["file_path"])}" is external and not deleted by server.', 'info')
         
         # Delete the associated custom cover file if it exists and is from our uploads
         if game['cover_url'] and str(game['cover_url']).startswith('/static/covers/'): # Ensure str() conversion for safety
@@ -590,9 +607,21 @@ def delete_game(game_id):
     conn.close()
     return redirect(url_for('library')) # Redirect to library
 
-@app.route('/uploads/<filename>')
+@app.route('/uploads/<path:filename>') # Changed to <path:filename> to allow serving arbitrary paths if needed
 def uploaded_file(filename):
-    """Serve uploaded game files from the UPLOAD_FOLDER"""
+    """Serve uploaded game files from the UPLOAD_FOLDER."""
+    # This route currently serves files ONLY from UPLOAD_FOLDER.
+    # If your scanner puts files elsewhere, you'll need to modify this
+    # to accept and serve full absolute paths or move files into UPLOAD_FOLDER.
+    # For now, if the file_path in DB isn't inside UPLOAD_FOLDER, it won't be served by this route.
+    # The simpler and safer approach is for the scanner to copy files to UPLOAD_FOLDER
+    # before calling the API, or for the API to handle the file upload itself.
+    
+    # For now, assuming direct filenames or paths relative to UPLOAD_FOLDER
+    # You might want to make this more robust if file_path can be arbitrary.
+    # For example:
+    # return send_file(filename, as_attachment=True) # if filename is full path and Flask has permission
+
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/scan_covers') # This route name is now a bit misleading, it's for all missing metadata
@@ -632,6 +661,87 @@ def scan_covers():
     
     flash(f'Updated metadata (covers/descriptions) for {updated_count} games!', 'info')
     return redirect(url_for('library')) # Redirect to library
+
+
+# --- NEW API ENDPOINTS FOR SCANNER ---
+
+@app.route('/api/games', methods=['POST'])
+def api_add_game():
+    """
+    API endpoint to add a game to the library.
+    Expects JSON payload with game details.
+    """
+    if not request.is_json:
+        return jsonify({"error": "Request must be JSON"}), 400
+
+    data = request.get_json()
+
+    # Required fields for adding a game via API
+    filename = data.get('filename')
+    title = data.get('title')
+    system = data.get('system')
+    file_path = data.get('file_path') 
+
+    if not all([filename, title, system, file_path]):
+        return jsonify({"error": "Missing required fields: filename, title, system, file_path"}), 400
+
+    # Optional fields
+    description = data.get('description', '')
+    cover_url = data.get('cover_url', '')
+    release_date = data.get('release_date', None)
+    genre = data.get('genre', None)
+    rating = data.get('rating', None)
+
+    # Validate that the system is one of the supported systems
+    if system not in SYSTEMS:
+        return jsonify({"error": f"Invalid system '{system}'. Supported systems are: {', '.join(SYSTEMS)}"}), 400
+
+    # Check if the file already exists in the database by its path
+    conn = get_db_connection()
+    existing_game = conn.execute('SELECT id FROM games WHERE file_path = ?', (file_path,)).fetchone()
+    if existing_game:
+        conn.close()
+        return jsonify({"message": "Game with this file_path already exists", "game_id": existing_game['id']}), 409 # 409 Conflict
+
+    try:
+        conn.execute('''INSERT INTO games 
+                        (filename, title, description, release_date, genre, rating, cover_url, upload_date, system, file_path) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                     (filename, title, description, release_date, genre, rating, cover_url, 
+                      datetime.now().strftime('%Y-%m-%d %H:%M:%S'), system, file_path))
+        conn.commit()
+        game_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        conn.close()
+        return jsonify({"message": "Game added successfully", "game_id": game_id}), 201 # 201 Created
+    except sqlite3.IntegrityError as e:
+        conn.close()
+        # This likely means the file_path UNIQUE constraint was violated
+        # although we checked it above, a race condition or manual DB change could trigger it.
+        return jsonify({"error": f"Database integrity error: {e}"}), 400
+    except Exception as e:
+        conn.close()
+        return jsonify({"error": f"An unexpected error occurred: {e}"}), 500
+
+@app.route('/api/systems', methods=['GET'])
+def api_get_systems():
+    """API endpoint to get the list of supported systems."""
+    return jsonify(SYSTEMS), 200
+
+@app.route('/api/games/check_exists', methods=['GET'])
+def api_check_game_exists():
+    """API endpoint to check if a game with a given file_path already exists."""
+    file_path = request.args.get('file_path')
+    if not file_path:
+        return jsonify({"error": "file_path parameter is required"}), 400
+
+    conn = get_db_connection()
+    existing_game = conn.execute('SELECT id FROM games WHERE file_path = ?', (file_path,)).fetchone()
+    conn.close()
+
+    if existing_game:
+        return jsonify({"exists": True, "game_id": existing_game['id']}), 200
+    else:
+        return jsonify({"exists": False}), 200
 
 # Initialize database and load config on app startup
 load_api_config()
