@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Game Library</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        h1 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .settings-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .section h2 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        input[type="text"],
+        input[type="password"],
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .theme-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .theme-option {
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .theme-option:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+        
+        .theme-option.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .theme-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .theme-description {
+            font-size: 0.9em;
+            color: #718096;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        
+        .flash {
+            background: #48bb78;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .help-text {
+            font-size: 0.9em;
+            color: #718096;
+            margin-top: 5px;
+        }
+        
+        .api-section {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        
+        .warning {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚙️ Settings</h1>
+            <a href="/" class="btn">← Back to Library</a>
+        </header>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for message in messages %}
+                        <div class="flash">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="settings-container">
+            <form method="POST">
+                <div class="section">
+                    <h2>🎨 Theme Settings</h2>
+                    <div class="form-group">
+                        <label>Choose Theme</label>
+                        <div class="theme-preview">
+                            {% for theme_key, theme_info in themes.items() %}
+                                <div class="theme-option {% if theme == theme_key %}selected{% endif %}" 
+                                     onclick="selectTheme('{{ theme_key }}')">
+                                    <div class="theme-name">{{ theme_info.name }}</div>
+                                    <div class="theme-description">{{ theme_info.description }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <input type="hidden" name="theme" id="selectedTheme" value="{{ theme }}">
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>🎮 API Configuration</h2>
+                    <p style="color: #718096; margin-bottom: 20px;">
+                        Configure API keys to enable automatic cover art detection for your games.
+                    </p>
+                    
+                    <div class="api-section">
+                        <h3 style="margin-bottom: 15px; color: #4a5568;">IGDB (Internet Game Database)</h3>
+                        <div class="form-group">
+                            <label for="igdb_client_id">Client ID</label>
+                            <input type="text" id="igdb_client_id" name="igdb_client_id" 
+                                   value="{{ api_config.igdb_client_id or '' }}" 
+                                   placeholder="Your IGDB Client ID">
+                            <div class="help-text">
+                                Get your free API key at <a href="https://api.igdb.com/signup" target="_blank">api.igdb.com</a>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="igdb_client_secret">Client Secret</label>
+                            <input type="password" id="igdb_client_secret" name="igdb_client_secret" 
+                                   value="{{ api_config.igdb_client_secret or '' }}" 
+                                   placeholder="Your IGDB Client Secret">
+                        </div>
+                    </div>
+
+                    <div class="api-section">
+                        <h3 style="margin-bottom: 15px; color: #4a5568;">Google Custom Search (Fallback)</h3>
+                        <div class="form-group">
+                            <label for="google_api_key">Google API Key</label>
+                            <input type="text" id="google_api_key" name="google_api_key" 
+                                   value="{{ api_config.google_api_key or '' }}" 
+                                   placeholder="Your Google API Key">
+                            <div class="help-text">
+                                Get your API key at <a href="https://developers.google.com/custom-search/v1/introduction" target="_blank">Google Developers Console</a>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="google_cx">Custom Search Engine ID</label>
+                            <input type="text" id="google_cx" name="google_cx" 
+                                   value="{{ api_config.google_cx or '' }}" 
+                                   placeholder="Your Custom Search Engine ID">
+                            <div class="help-text">
+                                Create a custom search engine at <a href="https://cse.google.com/" target="_blank">Google CSE</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="warning">
+                        <strong>Note:</strong> Without API keys, automatic cover art detection will not work. 
+                        You can still manually add cover art URLs when editing games.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <button type="submit" class="submit-btn">💾 Save Settings</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function selectTheme(themeKey) {
+            // Remove selected class from all theme options
+            document.querySelectorAll('.theme-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked option
+            event.target.closest('.theme-option').classList.add('selected');
+            
+            // Update hidden input
+            document.getElementById('selectedTheme').value = themeKey;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Your Game Library{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    {# Load the theme CSS based on the 'theme' variable passed from Flask #}
+    {% if theme and theme != 'modern' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes/' + theme + '.css') }}">
+    {% endif %}
+
+    <script src="{{ url_for('static', filename='js/theme_handler.js') }}"></script>
+    {% block head_extra %}{% endblock %} {# For any extra head content per page #}
+</head>
+<body class="{{ theme }}"> {# Apply theme class to body for global styling #}
+    <div class="navbar">
+        <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a>
+        <a href="/library" class="nav-link {% if request.path == '/library' %}active{% endif %}">Library</a>
+        <a href="/upload" class="nav-link {% if request.path == '/upload' %}active{% endif %}">Upload Game</a>
+        <a href="/settings" class="nav-link {% if request.path == '/settings' %}active{% endif %}">Settings</a>
+    </div>
+
+    <div class="container">
+        {# Flash messages from Flask #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {# This is where the unique content of each page will go #}
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>
+    <div class="container">
+        <p>&copy; {{ datetime.now().year }} Game Library</p>
+        {% block footer_extra %}{% endblock %} {# This is the new block for page-specific footer content #}
+    </div>
+</footer>
+
+    {% block scripts_extra %}{% endblock %} {# For any extra scripts per page #}
+</body>
+</html>

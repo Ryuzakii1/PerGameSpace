@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Game - Game Library</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        h1 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .form-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        input[type="text"],
+        input[type="url"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        input[type="text"]:focus,
+        input[type="url"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .cover-preview {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            margin-top: 10px;
+        }
+        
+        .current-cover {
+            flex-shrink: 0;
+        }
+        
+        .cover-image {
+            width: 150px;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .no-cover {
+            width: 150px;
+            height: 200px;
+            background: #f7fafc;
+            border: 2px dashed #cbd5e0;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #718096;
+            font-style: italic;
+        }
+        
+        .cover-inputs {
+            flex: 1;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+        
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        
+        .flash {
+            background: #48bb78;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .file-info {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .file-info h3 {
+            color: #4a5568;
+            margin-bottom: 10px;
+        }
+        
+        .file-details {
+            color: #718096;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✏️ Edit Game</h1>
+            <div>
+                <a href="/manage" class="btn">← Back to Manage</a>
+                <a href="/" class="btn">Library</a>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for message in messages %}
+                        <div class="flash">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="form-container">
+            <div class="file-info">
+                <h3>📁 File Information</h3>
+                <div class="file-details">
+                    <strong>Filename:</strong> {{ game.filename }}<br>
+                    <strong>Upload Date:</strong> {{ game.upload_date }}<br>
+                    <strong>File Path:</strong> {{ game.file_path }}
+                </div>
+            </div>
+
+            <form method="POST">
+                <div class="form-group">
+                    <label for="title">Game Title *</label>
+                    <input type="text" id="title" name="title" required 
+                           value="{{ game.title or game.filename }}" 
+                           placeholder="Enter the game title">
+                </div>
+
+                <div class="form-group">
+                    <label for="system">System *</label>
+                    <select id="system" name="system" required>
+                        {% for system in systems %}
+                            <option value="{{ system }}" {% if system == game.system %}selected{% endif %}>
+                                {{ system }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" 
+                              placeholder="Optional description of the game...">{{ game.description or '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="cover_url">Cover Art</label>
+                    <div class="cover-preview">
+                        <div class="current-cover">
+                            {% if game.cover_url %}
+                                <img src="{{ game.cover_url }}" alt="Current cover" class="cover-image" id="coverPreview">
+                            {% else %}
+                                <div class="no-cover" id="coverPreview">No Cover</div>
+                            {% endif %}
+                        </div>
+                        <div class="cover-inputs">
+                            <input type="url" id="cover_url" name="cover_url" 
+                                   value="{{ game.cover_url or '' }}" 
+                                   placeholder="https://example.com/cover.jpg"
+                                   onchange="updateCoverPreview()">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="auto_cover" name="auto_cover">
+                                <label for="auto_cover" style="margin-bottom: 0;">
+                                    Automatically search for cover art (overwrites manual URL)
+                                </label>
+                            </div>
+                            <div style="font-size: 0.9em; color: #718096; margin-top: 10px;">
+                                You can paste a direct image URL or use the auto-search feature.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <button type="submit" class="submit-btn">💾 Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function updateCoverPreview() {
+            const coverUrl = document.getElementById('cover_url').value;
+            const preview = document.getElementById('coverPreview');
+            
+            if (coverUrl) {
+                if (preview.tagName === 'DIV') {
+                    // Replace the no-cover div with an img
+                    const img = document.createElement('img');
+                    img.src = coverUrl;
+                    img.alt = 'Cover preview';
+                    img.className = 'cover-image';
+                    img.id = 'coverPreview';
+                    img.onerror = function() {
+                        this.outerHTML = '<div class="no-cover" id="coverPreview">Invalid URL</div>';
+                    };
+                    preview.parentNode.replaceChild(img, preview);
+                } else {
+                    // Update existing img
+                    preview.src = coverUrl;
+                    preview.onerror = function() {
+                        this.outerHTML = '<div class="no-cover" id="coverPreview">Invalid URL</div>';
+                    };
+                }
+            } else {
+                if (preview.tagName === 'IMG') {
+                    // Replace img with no-cover div
+                    const div = document.createElement('div');
+                    div.className = 'no-cover';
+                    div.id = 'coverPreview';
+                    div.textContent = 'No Cover';
+                    preview.parentNode.replaceChild(div, preview);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

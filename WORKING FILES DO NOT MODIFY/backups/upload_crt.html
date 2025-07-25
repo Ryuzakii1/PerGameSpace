@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Game - Game Library</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* CSS Variables for CRT Theme - Centralized for consistency */
+        :root {
+            --crt-bg: #111;
+            --crt-screen-bg: #101010;
+            --crt-screen-text-color: lime;
+            --crt-screen-glow-color: #0f0;
+            --crt-border-color: #050505;
+            --crt-form-bg: rgba(16, 16, 16, 0.9); /* Slightly transparent for depth */
+            --crt-input-bg: #0d0d0d;
+            --crt-input-border: #080;
+            --crt-input-focus-border: #0f0;
+            --crt-label-color: lime;
+            --crt-button-bg: #0a0a0a;
+            --crt-button-border: #0f0;
+            --crt-button-text: lime;
+            --crt-flash-success-bg: #006400; /* Darker green */
+            --crt-flash-text: #0f0;
+            --crt-scanline-color: #0f05;
+            --crt-shadow-color: rgba(0, 0, 0, 0.5);
+            --crt-placeholder-color: #555; /* Darker placeholder */
+        }
+
+        /* Dark Mode variables for the upload page, if you want it to also toggle */
+        body.dark-mode {
+            --crt-bg: #050505;
+            --crt-screen-bg: #000;
+            --crt-screen-text-color: #0c0;
+            --crt-screen-glow-color: #0c0;
+            --crt-border-color: #000;
+            --crt-form-bg: rgba(0, 0, 0, 0.9);
+            --crt-input-bg: #000;
+            --crt-input-border: #050;
+            --crt-input-focus-border: #0c0;
+            --crt-label-color: #0c0;
+            --crt-button-bg: #050505;
+            --crt-button-border: #0c0;
+            --crt-button-text: #0c0;
+            --crt-flash-success-bg: #004400;
+            --crt-flash-text: #0c0;
+            --crt-scanline-color: #0c05;
+            --crt-shadow-color: rgba(0, 0, 0, 0.7);
+            --crt-placeholder-color: #333;
+        }
+
+        /* Global styles for CRT theme */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: var(--crt-bg);
+            font-family: 'Press Start 2P', 'Courier New', Courier, monospace;
+            color: var(--crt-screen-text-color);
+            text-shadow: 0 0 5px var(--crt-screen-text-color); /* Subtle text glow */
+            transition: background 0.5s ease, color 0.5s ease, text-shadow 0.5s ease;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+        }
+
+        /* Scanlines effect */
+        body::before {
+            content: '';
+            position: fixed; /* Fixed so it covers the whole viewport */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                #00000000, /* Transparent */
+                #00000000 1px,
+                var(--crt-scanline-color) 1px,
+                var(--crt-scanline-color) 2px
+            );
+            pointer-events: none;
+            opacity: 0.15; /* Slightly more visible scanlines */
+            z-index: 1000; /* Ensure it's on top of everything */
+            animation: scanlineAnimation 8s infinite linear; /* Slow vertical scroll */
+        }
+
+        @keyframes scanlineAnimation {
+            from { background-position: 0 0; }
+            to { background-position: 0 100%; }
+        }
+
+        /* CRT Glitch/Noise Overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, rgba(0,255,0,0) 0%, rgba(0,255,0,0.1) 100%); /* Vignette effect */
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.2;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 40px auto; /* More margin top for navbar space */
+            padding: 20px;
+            position: relative; /* For z-index if needed */
+            z-index: 10; /* Ensure content is above scanlines/noise */
+        }
+
+        /* Navigation Bar */
+        .navbar {
+            background: var(--crt-form-bg);
+            backdrop-filter: blur(5px);
+            padding: 15px 20px;
+            border-bottom: 2px solid var(--crt-border-color);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: center;
+            position: fixed; /* Fixed at the top */
+            width: 100%;
+            top: 0;
+            left: 0;
+            z-index: 100; /* Above everything but scanlines overlay */
+            transition: background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        .navbar a {
+            color: var(--crt-screen-text-color);
+            text-decoration: none;
+            font-size: 1em;
+            padding: 8px 15px;
+            margin: 0 10px;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 3px var(--crt-screen-text-color);
+        }
+
+        .navbar a:hover, .navbar a.active {
+            border-color: var(--crt-screen-glow-color);
+            box-shadow: 0 0 10px var(--crt-screen-glow-color);
+            background: rgba(0, 255, 0, 0.05); /* Subtle highlight */
+        }
+
+        /* Header (now integrated into the screen-like container) */
+        header {
+            background: var(--crt-screen-bg);
+            border: 2px solid var(--crt-screen-glow-color);
+            box-shadow: inset 0 0 15px var(--crt-screen-glow-color), 0 0 40px var(--crt-screen-glow-color);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            text-align: center;
+            transition: all 0.5s ease;
+        }
+        
+        h1 {
+            color: var(--crt-screen-text-color);
+            margin-bottom: 15px; /* Reduced margin */
+            font-size: 2em; /* Adjusted font size */
+            text-shadow: 0 0 8px var(--crt-screen-glow-color); /* Stronger glow for title */
+            line-height: 1.2;
+        }
+        
+        .btn {
+            background: var(--crt-button-bg);
+            color: var(--crt-button-text);
+            border: 2px solid var(--crt-button-border); /* CRT-style border */
+            padding: 10px 20px;
+            border-radius: 8px; /* Slightly less rounded for a retro button look */
+            text-decoration: none;
+            font-weight: normal; /* Press Start 2P is already bold */
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: inline-block;
+            font-size: 0.9em; /* Smaller font for buttons */
+            text-shadow: 0 0 3px var(--crt-button-text);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3), 0 0 15px var(--crt-screen-glow-color);
+            background: rgba(0, 255, 0, 0.08); /* Subtle highlight on hover */
+        }
+        
+        .form-container {
+            background: var(--crt-form-bg);
+            backdrop-filter: blur(5px); /* Less blur for consistency */
+            border: 2px solid var(--crt-border-color);
+            border-radius: 15px;
+            padding: 30px; /* Reduced padding */
+            box-shadow: 
+                inset 0 0 10px rgba(0, 255, 0, 0.1), /* Subtle inner glow */
+                0 8px 32px rgba(0, 0, 0, 0.3); /* Stronger outer shadow */
+            transition: all 0.5s ease;
+        }
+        
+        .form-group {
+            margin-bottom: 20px; /* Reduced margin */
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px; /* Reduced margin */
+            font-weight: normal; /* Press Start 2P doesn't need bold */
+            color: var(--crt-label-color);
+            font-size: 0.9em; /* Smaller font for labels */
+            text-shadow: none; /* No extra glow for labels */
+        }
+        
+        input[type="text"],
+        input[type="file"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 14px; /* Slightly smaller padding */
+            border: 2px solid var(--crt-input-border);
+            border-radius: 8px; /* Less rounded corners */
+            font-size: 0.9em; /* Consistent font size */
+            transition: all 0.3s ease;
+            background: var(--crt-input-bg);
+            color: var(--crt-screen-text-color);
+            text-shadow: none; /* No glow on input text */
+            box-shadow: inset 0 0 5px rgba(0, 255, 0, 0.05); /* Subtle inner shadow */
+        }
+        
+        input[type="text"]:focus,
+        input[type="file"]:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--crt-input-focus-border);
+            box-shadow: 
+                inset 0 0 5px rgba(0, 255, 0, 0.1),
+                0 0 0 3px rgba(0, 255, 0, 0.1); /* Brighter outline on focus */
+            background: var(--crt-input-bg); /* Keep background consistent */
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: var(--crt-placeholder-color); /* Darker placeholder text */
+            opacity: 0.7;
+            text-shadow: none;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px; /* Slightly smaller textarea */
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: block; /* Changed to block for full width */
+            width: 100%;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px; /* Keep off-screen */
+        }
+        
+        .file-input-label {
+            display: block;
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px dashed var(--crt-input-border); /* Dashed border */
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--crt-input-bg);
+            color: var(--crt-screen-text-color);
+            font-size: 0.9em;
+            text-shadow: none;
+        }
+        
+        .file-input-label:hover {
+            border-color: var(--crt-input-focus-border);
+            background: rgba(0, 255, 0, 0.05); /* Subtle hover effect */
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px; /* Reduced gap */
+            margin-top: 15px; /* Slightly more margin */
+            font-size: 0.9em;
+        }
+        
+        input[type="checkbox"] {
+            width: 16px; /* Standard checkbox size */
+            height: 16px;
+            appearance: none; /* Hide default checkbox */
+            -webkit-appearance: none;
+            border: 2px solid var(--crt-input-border);
+            background: var(--crt-input-bg);
+            border-radius: 4px; /* Small square corners */
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        input[type="checkbox"]:checked {
+            background: var(--crt-screen-glow-color); /* Green when checked */
+            border-color: var(--crt-screen-glow-color);
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✔'; /* Checkmark for checked state */
+            color: var(--crt-input-bg); /* Dark color for checkmark */
+            font-size: 12px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            line-height: 1; /* Ensure centering */
+        }
+
+        input[type="checkbox"]:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 255, 0, 0.1);
+        }
+        
+        .submit-btn {
+            background: var(--crt-button-bg);
+            color: var(--crt-button-text);
+            border: 2px solid var(--crt-button-border);
+            padding: 12px 25px; /* Slightly smaller padding */
+            border-radius: 8px;
+            font-size: 1em; /* Adjusted font size */
+            font-weight: normal;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 5px var(--crt-button-text);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            width: auto; /* Allow button to size based on content */
+            margin-top: 10px; /* Space from checkbox */
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 20px var(--crt-screen-glow-color);
+            background: rgba(0, 255, 0, 0.1); /* Stronger highlight on hover */
+        }
+        
+        .flash-messages {
+            margin-bottom: 25px; /* More space for messages */
+            text-align: center;
+        }
+        
+        .flash {
+            background: var(--crt-flash-success-bg);
+            color: var(--crt-flash-text);
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--crt-screen-glow-color);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+            text-shadow: none; /* No extra glow for flash messages */
+            font-size: 0.9em;
+            transition: all 0.5s ease;
+        }
+        
+        .allowed-formats {
+            font-size: 0.8em; /* Smaller font */
+            color: var(--crt-label-color);
+            opacity: 0.8;
+            margin-top: 5px;
+            text-shadow: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/library" class="nav-link">Library</a>
+        <a href="/upload" class="nav-link active">Upload Game</a>
+        <a href="/settings" class="nav-link">Settings</a>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>📤 Upload Game</h1>
+            </header>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for message in messages %}
+                        <div class="flash">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="form-container">
+            <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                <div class="form-group">
+                    <label for="file">Game File *</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="file" name="file" required onchange="updateFileName()">
+                        <label for="file" class="file-input-label" id="fileLabel">
+                            📁 Choose ROM file...
+                        </label>
+                    </div>
+                    <div class="allowed-formats">
+                        Supported formats: .exe, .nes, .bin, .sfc, .smc, .gba, .gbc, .gb, .iso, .zip, .rom
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="title">Game Title *</label>
+                    <input type="text" id="title" name="title" required placeholder="Enter the game title">
+                </div>
+
+                <div class="form-group">
+                    <label for="system">System *</label>
+                    <select id="system" name="system" required>
+                        <option value="">Select a system...</option>
+                        {% for system in systems %}
+                            <option value="{{ system }}">{{ system }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" placeholder="Optional description of the game..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="auto_cover" name="auto_cover">
+                        <label for="auto_cover" style="margin-bottom: 0;">Automatically search for cover art</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <button type="submit" class="submit-btn">🚀 Upload Game</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function updateFileName() {
+            const fileInput = document.getElementById('file');
+            const fileLabel = document.getElementById('fileLabel');
+            const titleInput = document.getElementById('title');
+            
+            if (fileInput.files.length > 0) {
+                const fileName = fileInput.files[0].name;
+                fileLabel.textContent = `📁 ${fileName}`;
+                
+                // Auto-fill title if empty
+                if (!titleInput.value) {
+                    const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
+                    // Clean up the filename for title
+                    const cleanTitle = nameWithoutExt
+                        .replace(/[_-]/g, ' ')
+                        .replace(/\[.*?\]/g, '')
+                        .replace(/\(.*?\)/g, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    titleInput.value = cleanTitle;
+                }
+            } else {
+                fileLabel.textContent = '📁 Choose ROM file...';
+            }
+        }
+
+        // JavaScript for basic dark mode toggle (if you integrate it across pages)
+        // You'll need a mechanism to persist this state (e.g., localStorage)
+        // This example only applies it if a 'dark-mode' class is present on body
+        function applyThemeFromStorage() {
+            if (localStorage.getItem('theme') === 'dark') {
+                document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
+            }
+        }
+        // Call on page load
+        applyThemeFromStorage();
+    </script>
+</body>
+</html>

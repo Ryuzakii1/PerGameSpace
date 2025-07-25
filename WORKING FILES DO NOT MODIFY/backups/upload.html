@@ -1,0 +1,65 @@
+<DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Game - Game Library</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f0f0f0; }
+        .header { background: #333; color: white; padding: 1rem; border-radius: 5px; margin-bottom: 20px; }
+        .form-container { background: white; padding: 20px; border-radius: 5px; max-width: 600px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box; }
+        .btn { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 3px; cursor: pointer; }
+        .btn:hover { background: #005a87; }
+        .nav { margin-bottom: 20px; }
+        .nav a { margin-right: 15px; text-decoration: none; color: #333; padding: 8px 15px; background: #e0e0e0; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⬆️ Upload New Game</h1>
+        <a href="/">← Back to Library</a>
+    </div>
+    <div class="nav">
+        <a href="/manage">⚙️ Manage Games</a>
+    </div>
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div style="background: #d4edda; color: #155724; padding: 10px; border-radius: 3px; margin-bottom: 20px;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    <div class="form-container">
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">Game File:</label>
+                <input type="file" id="file" name="file" required>
+                <small>Supported formats: exe, nes, bin, sfc, smc, gba, gbc, gb, iso, zip</small>
+            </div>
+            <div class="form-group">
+                <label for="title">Game Title:</label>
+                <input type="text" id="title" name="title" required>
+            </div>
+            <div class="form-group">
+                <label for="system">System:</label>
+                <select id="system" name="system" required>
+                    <option value="">Select a system...</option>
+                    {% for system in systems %}
+                        <option value="{{ system }}">{{ system }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="description">Description (optional):</label>
+                <textarea id="description" name="description" rows="4"></textarea>
+            </div>
+            <button type="submit" class="btn">Upload Game</button>
+        </form>
+    </div>
+</body>
+</html>

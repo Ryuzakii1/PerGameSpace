@@ -1,0 +1,141 @@
+/* --- Game Detail Page Styles --- */
+.game-detail-container {
+    padding: 30px;
+    max-width: 900px;
+    margin: 30px auto;
+    background-color: var(--background-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    color: var(--text-color);
+}
+
+.back-link {
+    display: inline-block;
+    margin-bottom: 20px;
+    color: var(--link-color);
+    text-decoration: none;
+    font-size: 1.1em;
+    transition: color 0.3s ease;
+}
+
+.back-link:hover {
+    color: var(--accent-color);
+}
+
+.game-detail-card {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    align-items: center;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--card-bg-color);
+}
+
+.game-detail-header {
+    display: flex;
+    flex-direction: column; /* Stack on small screens */
+    align-items: center;
+    gap: 25px;
+    text-align: center;
+    width: 100%;
+}
+
+@media (min-width: 768px) {
+    .game-detail-header {
+        flex-direction: row; /* Side-by-side on larger screens */
+        text-align: left;
+        align-items: flex-start;
+    }
+}
+
+.game-detail-cover {
+    max-width: 250px;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.game-detail-info {
+    flex-grow: 1;
+}
+
+.game-detail-info h1 {
+    color: var(--heading-color);
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+.game-detail-info p {
+    font-size: 1.1em;
+    margin-bottom: 8px;
+    color: var(--text-color-light); /* Lighter text for meta info */
+}
+
+.game-detail-description {
+    width: 100%;
+    margin-top: 20px;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 20px;
+}
+
+.game-detail-description h2 {
+    color: var(--heading-color);
+    font-size: 1.8em;
+    margin-bottom: 15px;
+}
+
+.game-detail-description p {
+    line-height: 1.7;
+    font-size: 1em;
+    white-space: pre-wrap; /* Preserves formatting like line breaks from API data */
+}
+
+.game-detail-actions {
+    display: flex;
+    flex-wrap: wrap; /* Allow buttons to wrap */
+    gap: 15px;
+    margin-top: 30px;
+    justify-content: center;
+    width: 100%;
+}
+
+.game-detail-actions .btn {
+    padding: 12px 25px;
+    font-size: 1.05em;
+    text-decoration: none;
+    text-align: center;
+}
+/* Add to your theme CSS (e.g., modern.css) */
+.game-card {
+    /* Ensure flexbox for vertical alignment if needed, and space-between */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Pushes content to top/bottom */
+}
+
+.game-card .game-card-detail-action {
+    margin-top: auto; /* Pushes this div to the bottom of the flex container */
+    padding-top: 15px; /* Some spacing from content above */
+    text-align: center; /* Center the button */
+    width: 100%; /* Make sure it takes full width if desired */
+}
+
+.game-card .game-card-detail-action .btn {
+    width: auto; /* Allow button to size itself */
+    min-width: 120px; /* Or set a min-width for consistency */
+}
+
+/* You might already have similar styles, adjust as needed */
+.game-card img {
+    /* Ensure image takes up space nicely */
+    flex-shrink: 0; /* Prevent image from shrinking */
+    margin-bottom: 10px; /* Space below image */
+}
+.game-card h3 {
+    margin-bottom: 5px; /* Space below title */
+}
+.game-card p.game-system {
+    margin-bottom: 15px; /* Space below system */
+}

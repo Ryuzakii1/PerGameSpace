@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Library</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* CSS Variables for CRT Theme - Centralized for consistency */
+        :root {
+            /* Light Mode Variables (Default) */
+            --crt-bg: #111;
+            --crt-screen-bg: #101010;
+            --crt-screen-text-color: lime;
+            --crt-screen-glow-color: #0f0;
+            --crt-border-color: #050505;
+            --crt-form-bg: rgba(16, 16, 16, 0.9);
+            --crt-input-bg: #0d0d0d;
+            --crt-input-border: #080;
+            --crt-input-focus-border: #0f0;
+            --crt-label-color: lime;
+            --crt-button-bg: #0a0a0a;
+            --crt-button-border: #0f0;
+            --crt-button-text: lime;
+            --crt-flash-success-bg: #006400;
+            --crt-flash-text: #0f0;
+            --crt-scanline-color: #0f05;
+            --crt-shadow-color: rgba(0, 0, 0, 0.5);
+            --crt-placeholder-color: #555;
+            --crt-section-border: #080;
+            --crt-link-color: #0f0;
+            --crt-warning-bg: #800000;
+            --crt-warning-text: #ff0000;
+            --crt-api-section-bg: rgba(0, 255, 0, 0.05);
+
+            /* Library Specific */
+            --game-card-bg: rgba(0, 255, 0, 0.05); /* Subtle green tint */
+            --game-card-border: #080;
+            --game-card-shadow: rgba(0, 0, 0, 0.3);
+            --game-card-hover-border: #0f0;
+            --game-card-hover-shadow: rgba(0, 255, 0, 0.4);
+            --game-card-text: lime;
+            --game-card-system-text: #0c0; /* Slightly darker for system name */
+            --delete-btn-bg: #800000; /* Dark red */
+            --delete-btn-border: #ff0000;
+            --delete-btn-text: #ff0000;
+            --edit-btn-bg: #0a0a0a;
+            --edit-btn-border: #080;
+            --edit-btn-text: lime;
+        }
+
+        /* Dark Mode variables for the library page */
+        body.dark-mode {
+            --crt-bg: #050505;
+            --crt-screen-bg: #000;
+            --crt-screen-text-color: #0c0;
+            --crt-screen-glow-color: #0c0;
+            --crt-border-color: #000;
+            --crt-form-bg: rgba(0, 0, 0, 0.9);
+            --crt-input-bg: #000;
+            --crt-input-border: #050;
+            --crt-input-focus-border: #0c0;
+            --crt-label-color: #0c0;
+            --crt-button-bg: #050505;
+            --crt-button-border: #0c0;
+            --crt-button-text: #0c0;
+            --crt-flash-success-bg: #004400;
+            --crt-flash-text: #0c0;
+            --crt-scanline-color: #0c05;
+            --crt-shadow-color: rgba(0, 0, 0, 0.7);
+            --crt-placeholder-color: #333;
+            --crt-section-border: #050;
+            --crt-link-color: #0c0;
+            --crt-warning-bg: #400000;
+            --crt-warning-text: #c00000;
+            --crt-api-section-bg: rgba(0, 128, 0, 0.03);
+
+            /* Library Specific (Dark Mode) */
+            --game-card-bg: rgba(0, 128, 0, 0.03);
+            --game-card-border: #050;
+            --game-card-shadow: rgba(0, 0, 0, 0.5);
+            --game-card-hover-border: #0c0;
+            --game-card-hover-shadow: rgba(0, 128, 0, 0.4);
+            --game-card-text: #0c0;
+            --game-card-system-text: #090;
+            --delete-btn-bg: #400000;
+            --delete-btn-border: #c00000;
+            --delete-btn-text: #c00000;
+            --edit-btn-bg: #050505;
+            --edit-btn-border: #050;
+            --edit-btn-text: #0c0;
+        }
+
+        /* Global styles for CRT theme */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: var(--crt-bg);
+            font-family: 'Press Start 2P', 'Courier New', Courier, monospace;
+            color: var(--crt-screen-text-color);
+            text-shadow: 0 0 5px var(--crt-screen-text-color);
+            transition: background 0.5s ease, color 0.5s ease, text-shadow 0.5s ease;
+            overflow-x: hidden;
+            box-sizing: border-box;
+        }
+
+        /* Scanlines effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                #00000000,
+                #00000000 1px,
+                var(--crt-scanline-color) 1px,
+                var(--crt-scanline-color) 2px
+            );
+            pointer-events: none;
+            opacity: 0.15;
+            z-index: 1000;
+            animation: scanlineAnimation 8s infinite linear;
+        }
+
+        @keyframes scanlineAnimation {
+            from { background-position: 0 0; }
+            to { background-position: 0 100%; }
+        }
+
+        /* CRT Glitch/Noise Overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, rgba(0,255,0,0) 0%, rgba(0,255,0,0.1) 100%);
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.2;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 80px auto 40px auto; /* Adjust margin-top for navbar */
+            padding: 20px;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Navigation Bar */
+        .navbar {
+            background: var(--crt-screen-bg);
+            backdrop-filter: blur(5px);
+            padding: 15px 20px;
+            border-bottom: 2px solid var(--crt-border-color);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: center;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            left: 0;
+            z-index: 100;
+            transition: background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        .navbar a {
+            color: var(--crt-screen-text-color);
+            text-decoration: none;
+            font-size: 1em;
+            padding: 8px 15px;
+            margin: 0 10px;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 3px var(--crt-screen-text-color);
+        }
+
+        .navbar a:hover, .navbar a.active {
+            border-color: var(--crt-screen-glow-color);
+            box-shadow: 0 0 10px var(--crt-screen-glow-color);
+            background: rgba(0, 255, 0, 0.05);
+        }
+
+        /* Header (now integrated into the screen-like container) */
+        header {
+            background: var(--crt-screen-bg);
+            border: 2px solid var(--crt-screen-glow-color);
+            box-shadow: inset 0 0 15px var(--crt-screen-glow-color), 0 0 40px var(--crt-screen-glow-color);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            text-align: center;
+            transition: all 0.5s ease;
+        }
+        
+        h1 {
+            color: var(--crt-screen-text-color);
+            margin-bottom: 15px;
+            font-size: 2em;
+            text-shadow: 0 0 8px var(--crt-screen-glow-color);
+            line-height: 1.2;
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Responsive grid */
+            gap: 25px;
+        }
+
+        .game-card {
+            background: var(--game-card-bg);
+            border: 2px solid var(--game-card-border);
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 5px 15px var(--game-card-shadow), inset 0 0 8px rgba(0, 255, 0, 0.05);
+            transition: all 0.3s ease;
+            position: relative; /* For the action buttons */
+        }
+
+        .game-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--game-card-hover-border);
+            box-shadow: 0 8px 25px var(--game-card-hover-shadow), inset 0 0 15px rgba(0, 255, 0, 0.1);
+        }
+
+        .game-card img {
+            width: 100%;
+            max-width: 150px; /* Constrain image size */
+            height: auto;
+            border: 1px solid var(--game-card-border);
+            border-radius: 5px;
+            margin-bottom: 10px;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+        }
+
+        .game-card h2 {
+            font-size: 1.2em;
+            color: var(--game-card-text);
+            margin-bottom: 5px;
+            text-shadow: 0 0 3px var(--game-card-text);
+            line-height: 1.2;
+        }
+
+        .game-card p {
+            font-size: 0.8em;
+            color: var(--game-card-system-text);
+            margin-bottom: 15px;
+            text-shadow: none;
+        }
+
+        .game-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: auto; /* Push buttons to the bottom */
+            width: 100%;
+            justify-content: center;
+        }
+
+        .game-actions button,
+        .game-actions a {
+            flex: 1; /* Make buttons take equal width */
+            padding: 8px 12px;
+            font-size: 0.8em;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Press Start 2P', monospace;
+            text-shadow: 0 0 2px;
+            text-decoration: none; /* For anchor tags if used as buttons */
+            text-align: center;
+        }
+
+        .game-actions .edit-btn {
+            background: var(--edit-btn-bg);
+            color: var(--edit-btn-text);
+            border: 2px solid var(--edit-btn-border);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .game-actions .edit-btn:hover {
+            background: rgba(0, 255, 0, 0.1);
+            border-color: var(--crt-screen-glow-color);
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.3), 0 0 10px var(--crt-screen-glow-color);
+            transform: translateY(-2px);
+        }
+
+        .game-actions .delete-btn {
+            background: var(--delete-btn-bg);
+            color: var(--delete-btn-text);
+            border: 2px solid var(--delete-btn-border);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .game-actions .delete-btn:hover {
+            background: rgba(255, 0, 0, 0.1);
+            border-color: var(--crt-warning-text);
+            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.3), 0 0 10px var(--crt-warning-text);
+            transform: translateY(-2px);
+        }
+
+        /* No Games Message */
+        .no-games-message {
+            background: var(--crt-form-bg);
+            border: 2px solid var(--crt-input-border);
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--crt-screen-text-color);
+            font-size: 1.1em;
+            text-shadow: 0 0 5px var(--crt-screen-glow-color);
+            box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.1);
+        }
+
+        .no-games-message p {
+            margin-bottom: 20px;
+        }
+
+        .no-games-message .btn {
+            margin-top: 15px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/library" class="nav-link active">Library</a>
+        <a href="/upload" class="nav-link">Upload Game</a>
+        <a href="/settings" class="nav-link">Settings</a>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>🗄️ Your Game Library</h1>
+        </header>
+
+        <div class="game-grid">
+            <div class="game-card">
+                <img src="https://via.placeholder.com/150x200/0f0000/00FF00?text=GAME+COVER+1" alt="Game Cover">
+                <h2>Cyberpunk 2077</h2>
+                <p>System: PC</p>
+                <div class="game-actions">
+                    <a href="/edit-game/1" class="edit-btn">Edit</a>
+                    <button type="button" class="delete-btn" onclick="confirmDelete('Cyberpunk 2077')">Delete</button>
+                </div>
+            </div>
+
+            <div class="game-card">
+                <img src="https://via.placeholder.com/150x200/0f0000/00FF00?text=GAME+COVER+2" alt="Game Cover">
+                <h2>God of War</h2>
+                <p>System: PS4</p>
+                <div class="game-actions">
+                    <a href="/edit-game/2" class="edit-btn">Edit</a>
+                    <button type="button" class="delete-btn" onclick="confirmDelete('God of War')">Delete</button>
+                </div>
+            </div>
+
+            <div class="game-card">
+                <img src="https://via.placeholder.com/150x200/0f0000/00FF00?text=GAME+COVER+3" alt="Game Cover">
+                <h2>The Legend of Zelda</h2>
+                <p>System: Switch</p>
+                <div class="game-actions">
+                    <a href="/edit-game/3" class="edit-btn">Edit</a>
+                    <button type="button" class="delete-btn" onclick="confirmDelete('The Legend of Zelda')">Delete</button>
+                </div>
+            </div>
+
+            </div>
+
+        </div>
+
+    <script>
+        // --- Dark Mode Persistence ---
+        function applyThemeFromStorage() {
+            if (localStorage.getItem('theme') === 'dark') {
+                document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
+            }
+        }
+
+        // Function for delete confirmation (basic example)
+        function confirmDelete(gameTitle, gameId) {
+            if (confirm(`Are you sure you want to delete "${gameTitle}"? This cannot be undone.`)) {
+                // In a real application, you'd send an AJAX request to your backend to delete the game
+                // For example:
+                // fetch(`/delete-game/${gameId}`, { method: 'POST' })
+                //     .then(response => response.json())
+                //     .then(data => {
+                //         if (data.success) {
+                //             alert(`${gameTitle} deleted successfully!`);
+                //             window.location.reload(); // Reload to update the list
+                //         } else {
+                //             alert(`Error deleting ${gameTitle}: ${data.message || 'Unknown error'}`);
+                //         }
+                //     })
+                //     .catch(error => {
+                //         console.error('Error:', error);
+                //         alert(`An error occurred while deleting ${gameTitle}.`);
+                //     });
+
+                alert(`(Demo) Deleting ${gameTitle} with ID: ${gameId || 'N/A'}...`);
+                // For now, we'll just remove the card from the DOM for demonstration
+                // In a real app, this would happen after a successful backend deletion
+                const cardToRemove = event.target.closest('.game-card');
+                if (cardToRemove) {
+                    cardToRemove.remove();
+                }
+            }
+        }
+
+
+        // Apply theme on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            applyThemeFromStorage();
+        });
+    </script>
+</body>
+</html>
