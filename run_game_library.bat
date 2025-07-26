@@ -18,9 +18,9 @@ if errorlevel 1 (
 echo Python found: 
 python --version
 
-REM Check if app.py exists
-if not exist "app.py" (
-    echo ERROR: app.py not found in current directory
+REM Check if run.py exists
+if not exist "run.py" (
+    echo ERROR: run.py not found in current directory
     echo Please run the setup batch file first to create the application
     pause
     exit /b 1
@@ -70,7 +70,7 @@ echo ==========================================
 echo.
 
 REM Start the Flask application
-python app.py
+python run.py
 
 REM This will only execute if the Python script exits
 echo.

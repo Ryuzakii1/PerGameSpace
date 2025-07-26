@@ -1,27 +1,24 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <div class="header-actions">
-        <h1>Your Game Library</h1>
-        <a href="{{ url_for('upload_game') }}" class="btn btn-primary">Add New Game</a>
-    </div>
+{# The current_display_title will be passed from the blueprint, e.g., "My Game Library" or "Games on PS2" #}
+<h2>{{ current_display_title }}</h2>
 
-    <div class="game-list">
-        {% for game in games %}
-        {# Wrap the entire card in an anchor tag #}
-        <a href="{{ url_for('game_detail', game_id=game.id) }}" class="game-card-wrapper">
-            <div class="game-card-inner"> {# Inner div for content alignment #}
-                <img src="{{ game.cover_url if game.cover_url else url_for('static', filename='images/placeholder.png') }}" alt="{{ game.title }} Cover">
-                <h3>{{ game.title }}</h3>
-                <p class="game-system">{{ game.system }}</p>
-                {# The "View Details" button is now removed #}
-            </div>
+{% if games %}
+<div class="game-grid">
+    {% for game in games %}
+    <div class="game-card">
+        {# Make the entire card clickable by wrapping content in the <a> tag #}
+        <a href="{{ url_for('library.game_detail', game_id=game.id) }}">
+            <img src="{{ game.cover_url or url_for('static', filename='placeholder.png') }}" alt="{{ game.title }} Cover">
+            <h3>{{ game.title }}</h3>
+            <p>{{ game.system }}</p> {# Move system inside the clickable area #}
         </a>
-        {% else %}
-        <p>No games in your library yet. <a href="{{ url_for('upload_game') }}">Upload one!</a></p>
-        {% endfor %}
     </div>
-
+    {% endfor %}
+</div>
+{% else %}
+{# Adjusted message for clarity when no games are found #}
+<p>No games found {% if current_system_name %}for {{ current_system_name }}{% endif %}. <a href="{{ url_for('library.upload_game') }}">Upload a new game</a>!</p>
+{% endif %}
 {% endblock %}
-
-{# No extra scripts needed for the modal anymore #}

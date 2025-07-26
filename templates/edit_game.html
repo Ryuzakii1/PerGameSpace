@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Upload New Game</h2>
+<h2>Edit Game: {{ game.title }}</h2>
 <form method="POST" enctype="multipart/form-data">
     <div class="form-group">
         <label for="title">Game Title:</label>
-        <input type="text" id="title" name="title" required>
+        <input type="text" id="title" name="title" value="{{ game.title }}" required>
     </div>
 
     <div class="form-group">
         <label for="system">System:</label>
         <select id="system" name="system">
             {% for sys in systems %}
-                <option value="{{ sys.name }}">{{ sys.name }}</option>
+                <option value="{{ sys.name }}" {% if sys.name == game.system %}selected{% endif %}>{{ sys.name }}</option>
             {% endfor %}
             <option value="">-- Select or Add New --</option>
         </select>
@@ -21,17 +21,27 @@
     </div>
 
     <div class="form-group">
-        <label for="game_file">Game File:</label>
-        <input type="file" id="game_file" name="game_file" required>
+        <label for="game_file">Replace Game File (Optional):</label>
+        <input type="file" id="game_file" name="game_file">
+        <p class="file-info">Current file: {{ game.filepath.split('/')[-1].split('\\')[-1] }}</p>
     </div>
 
     <div class="form-group">
-        <label for="cover_file">Upload Custom Cover Image (Optional):</label>
+        <label for="cover_file">Replace Custom Cover Image (Optional):</label>
         <input type="file" id="cover_file" name="cover_file" accept="image/*">
+        {% if game.cover_url %}
+            <p class="file-info">Current cover:</p>
+            <img src="{{ game.cover_url }}" alt="Current Cover" class="current-cover-preview">
+            <label class="checkbox-label">
+                <input type="checkbox" name="clear_cover" value="true"> Clear current cover
+            </label>
+        {% else %}
+            <p class="file-info">No current cover.</p>
+        {% endif %}
     </div>
 
     <fieldset class="form-fieldset">
-        <legend>Or Find Cover on IGDB</legend>
+        <legend>Or Find New Cover on IGDB</legend>
         <div class="form-group">
             <label for="igdb_search_query">Search Game Title on IGDB:</label>
             <input type="text" id="igdb_search_query" name="igdb_search_query" placeholder="e.g., The Legend of Zelda: Ocarina of Time">
@@ -42,7 +52,8 @@
         <input type="hidden" id="igdb_cover_url" name="igdb_cover_url">
     </fieldset>
 
-    <button type="submit" class="button primary">Upload Game</button>
+    <button type="submit" class="button primary">Update Game</button>
+    <a href="{{ url_for('library.game_detail', game_id=game.id) }}" class="button secondary">Cancel</a>
 </form>
 
 <script>

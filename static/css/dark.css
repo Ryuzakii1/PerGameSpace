@@ -1,0 +1,106 @@
+/* static/css/dark.css */
+
+:root {
+    --bg-color: #2c2c2c;
+    --text-color: #f0f0f0;
+    --primary-color: #1a73e8; /* Google Blue */
+    --secondary-color: #6c757d; /* Muted Grey */
+    --danger-color: #dc3545; /* Bootstrap Red */
+    --link-color: #8ab4f8; /* Lighter blue for dark theme */
+    --link-hover-color: #a6caff;
+    --header-bg: #212121;
+    --footer-bg: #212121;
+    --border-color: #444;
+    --card-bg: #3c3c3c;
+    --button-text-color: #fff;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+header {
+    background-color: var(--header-bg);
+    color: var(--text-color);
+    border-bottom-color: var(--border-color);
+}
+
+header h1 a {
+    color: var(--text-color);
+}
+
+header h1 a:hover {
+    color: var(--link-hover-color);
+}
+
+header nav ul li a {
+    color: var(--link-color);
+}
+
+header nav ul li a:hover {
+    color: var(--link-hover-color);
+}
+
+h2 {
+    border-bottom-color: var(--border-color);
+}
+
+footer {
+    background-color: var(--footer-bg);
+    color: var(--text-color);
+    border-top-color: var(--border-color);
+}
+
+/* Buttons */
+.button.primary {
+    background-color: var(--primary-color);
+    color: var(--button-text-color);
+}
+.button.primary:hover {
+    background-color: #1565c0; /* Darker blue */
+}
+
+.button.secondary {
+    background-color: var(--secondary-color);
+    color: var(--button-text-color);
+}
+.button.secondary:hover {
+    background-color: #5a6268; /* Darker grey */
+}
+
+.button.danger {
+    background-color: var(--danger-color);
+    color: var(--button-text-color);
+}
+.button.danger:hover {
+    background-color: #c82333; /* Darker red */
+}
+
+/* Forms */
+.form-group input[type="text"],
+.form-group input[type="file"],
+.form-group input[type="password"],
+.form-group input[type="email"],
+.form-group select {
+    background-color: #4a4a4a;
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+.form-fieldset {
+    border-color: var(--border-color);
+}
+
+/* Game Cards */
+.game-card, .game-detail-card, .dashboard-card {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+.game-card h3 a {
+    color: var(--text-color);
+}
+.game-card h3 a:hover {
+    color: var(--link-hover-color);
+}

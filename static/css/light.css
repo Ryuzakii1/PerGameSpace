@@ -1,0 +1,104 @@
+/* static/css/light.css */
+
+:root {
+    --bg-color: #ffffff;
+    --text-color: #212121;
+    --primary-color: #007bff; /* Bootstrap Blue */
+    --secondary-color: #6c757d;
+    --danger-color: #dc3545;
+    --link-color: #0056b3;
+    --link-hover-color: #004085;
+    --header-bg: #e9ecef;
+    --footer-bg: #e9ecef;
+    --border-color: #ced4da;
+    --card-bg: #f8f9fa;
+    --button-text-color: #fff;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+header {
+    background-color: var(--header-bg);
+    color: var(--text-color);
+    border-bottom-color: var(--border-color);
+}
+
+header h1 a {
+    color: var(--text-color);
+}
+
+header h1 a:hover {
+    color: var(--link-hover-color);
+}
+
+header nav ul li a {
+    color: var(--link-color);
+}
+
+header nav ul li a:hover {
+    color: var(--link-hover-color);
+}
+
+h2 {
+    border-bottom-color: var(--border-color);
+}
+
+footer {
+    background-color: var(--footer-bg);
+    color: var(--text-color);
+    border-top-color: var(--border-color);
+}
+
+/* Buttons */
+.button.primary {
+    background-color: var(--primary-color);
+    color: var(--button-text-color);
+}
+.button.primary:hover {
+    background-color: #0056b3;
+}
+
+.button.secondary {
+    background-color: var(--secondary-color);
+    color: var(--button-text-color);
+}
+.button.secondary:hover {
+    background-color: #5a6268;
+}
+
+.button.danger {
+    background-color: var(--danger-color);
+    color: var(--button-text-color);
+}
+.button.danger:hover {
+    background-color: #c82333;
+}
+
+/* Forms */
+.form-group input[type="text"],
+.form-group input[type="file"],
+.form-group input[type="password"],
+.form-group input[type="email"],
+.form-group select {
+    border-color: var(--border-color);
+}
+.form-fieldset {
+    border-color: var(--border-color);
+}
+
+/* Game Cards */
+.game-card, .game-detail-card, .dashboard-card {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.05); /* Slightly more prominent shadow than modern */
+}
+
+.game-card h3 a {
+    color: var(--text-color);
+}
+.game-card h3 a:hover {
+    color: var(--link-hover-color);
+}

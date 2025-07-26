@@ -1,0 +1,517 @@
+/* static/css/retro.css */
+
+/* Import Press Start 2P for headings/accents. Keep other text more readable. */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root {
+    /* SOFTER, READABLE PALETTE */
+    --bg-color: #282c34;        /* Dark charcoal/blue-grey */
+    --text-color: #e0e0e0;      /* Off-white for general readability */
+    --primary-color: #61dafb;   /* React blue/cyan - still vibrant, but less harsh */
+    --secondary-color: #abb2bf; /* Muted grey/blue for secondary actions */
+    --danger-color: #e06c75;    /* Soft red for destructive actions */
+    --link-color: #61dafb;      /* Link color matches primary */
+    --link-hover-color: #38b2e5;/* Darker blue for link hover */
+    --header-bg: #21252b;       /* Slightly darker header/footer */
+    --footer-bg: #21252b;
+    --border-color: #61dafb;    /* Border color linked to primary accent */
+    --card-bg: #3c4048;         /* Darker, distinct card background */
+    --button-text-color: #282c34; /* Dark text for light/vibrant buttons */
+    --input-bg-color: #3c4048;   /* Input background matches card background */
+
+    /* ADJUSTED PIXEL-LIKE EFFECTS FOR SUBTLENESS */
+    --pixel-border: 1px solid var(--border-color); /* Thinner border */
+    --pixel-shadow: 2px 2px 0px rgba(97,218,251,0.3); /* Softer shadow, using muted primary color */
+}
+
+/* General Body and Font Settings */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: Arial, sans-serif; /* Use a readable font for most text */
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+    font-size: 16px; /* Slightly larger base font for better readability */
+}
+
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 0;
+    border: var(--pixel-border); /* Apply pixel border to container */
+    box-shadow: var(--pixel-shadow); /* Apply pixel shadow to container */
+    background-color: var(--bg-color); /* Ensure container background matches body */
+    border-radius: 0; /* No round corners */
+}
+
+/* Header and Navigation */
+header {
+    background-color: var(--header-bg);
+    color: var(--text-color);
+    padding: 1rem 0;
+    border-bottom: var(--pixel-border); /* Pixel border for header */
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    font-family: 'Press Start 2P', cursive, monospace; /* Pixel font for main title */
+}
+
+header h1 a {
+    text-decoration: none;
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+header h1 a:hover {
+    color: var(--link-hover-color);
+    text-shadow: 1px 1px 0px rgba(97,218,251,0.5); /* Subtle glow on hover */
+}
+
+header nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+}
+
+header nav ul li {
+    margin-left: 20px;
+}
+
+header nav ul li a {
+    text-decoration: none;
+    font-weight: bold;
+    color: var(--link-color);
+}
+
+header nav ul li a:hover {
+    color: var(--link-hover-color);
+    text-shadow: 1px 1px 0px rgba(97,218,251,0.5);
+}
+
+/* Main Content Area */
+main {
+    padding: 20px 0;
+    min-height: calc(100vh - 120px); /* Adjust based on your header/footer height */
+}
+
+h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: var(--pixel-border); /* Pixel border for headings */
+    margin-bottom: 20px;
+    font-family: 'Press Start 2P', cursive, monospace; /* Pixel font for section titles */
+    font-size: 1.5em;
+}
+
+/* Footer */
+footer {
+    background-color: var(--footer-bg);
+    color: var(--text-color);
+    padding: 1rem 0;
+    text-align: center;
+    border-top: var(--pixel-border); /* Pixel border for footer */
+    font-size: 0.9em;
+}
+
+/* Flash Messages */
+.flashes {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+}
+
+.flashes li {
+    padding: 10px 15px;
+    border-radius: 0; /* No round corners for retro */
+    margin-bottom: 10px;
+    font-weight: bold;
+    border: 1px solid; /* Use a general border, theme will set color */
+    box-shadow: 1px 1px 0px rgba(0,0,0,0.3); /* Subtle dark shadow */
+    font-family: Arial, sans-serif; /* Keep readable font for messages */
+    font-size: 0.9em;
+}
+
+.flashes li.success {
+    background-color: #3f6c4c; /* Muted Green */
+    color: #a4e5a9;
+    border-color: #a4e5a9;
+}
+
+.flashes li.error {
+    background-color: #8f3e48; /* Muted Red */
+    color: #f2a7ad;
+    border-color: #f2a7ad;
+}
+
+.flashes li.info {
+    background-color: #3b5f67; /* Muted Blue */
+    color: #a0d8e8;
+    border-color: #a0d8e8;
+}
+
+.flashes li.warning {
+    background-color: #7d6b38; /* Muted Yellow/Orange */
+    color: #f2e3a0;
+    border-color: #f2e3a0;
+}
+
+/* Buttons */
+.button {
+    display: inline-block;
+    padding: 10px 15px;
+    border: var(--pixel-border); /* Pixel border for buttons */
+    border-radius: 0; /* No round corners */
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 0.9em;
+    font-weight: bold;
+    text-align: center;
+    transition: background-color 0.3s ease, box-shadow 0.1s ease; /* Smooth transition */
+    margin-right: 5px;
+    margin-bottom: 5px;
+    text-transform: uppercase; /* Make buttons uppercase for retro feel */
+    font-family: 'Press Start 2P', cursive, monospace; /* Pixel font for buttons */
+    box-shadow: 3px 3px 0px var(--secondary-color); /* Chunky shadow for buttons */
+}
+
+.button:last-child {
+    margin-right: 0;
+}
+
+/* Button variants - colors handled by themes */
+.button.primary {
+    background-color: var(--primary-color);
+    color: var(--button-text-color);
+    box-shadow: 3px 3px 0px var(--link-hover-color); /* Primary button shadow matches hover color */
+}
+.button.primary:hover {
+    background-color: var(--link-hover-color);
+    box-shadow: 1px 1px 0px var(--link-hover-color); /* Smaller shadow on hover */
+}
+
+.button.secondary {
+    background-color: var(--secondary-color);
+    color: var(--button-text-color);
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.5); /* Darker shadow for secondary */
+}
+.button.secondary:hover {
+    background-color: #9299a4; /* Slightly darker grey on hover */
+    box-shadow: 1px 1px 0px rgba(0,0,0,0.5);
+}
+
+.button.danger {
+    background-color: var(--danger-color);
+    color: var(--button-text-color);
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.5); /* Darker shadow for danger */
+}
+.button.danger:hover {
+    background-color: #c05c65; /* Slightly darker red on hover */
+    box-shadow: 1px 1px 0px rgba(0,0,0,0.5);
+}
+
+.button.small {
+    padding: 5px 10px;
+    font-size: 0.7em; /* Smaller font for small buttons */
+}
+
+
+/* Forms */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    font-family: Arial, sans-serif; /* Readable font for form labels */
+}
+
+.form-group input[type="text"],
+.form-group input[type="password"], /* Added for consistency */
+.form-group input[type="file"],
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: var(--pixel-border); /* Pixel border for inputs */
+    border-radius: 0; /* No round corners */
+    box-sizing: border-box;
+    background-color: var(--input-bg-color); /* Input background from theme */
+    color: var(--text-color); /* Input text color from theme */
+    outline: none; /* Remove default browser outline on focus */
+}
+
+.form-group .label-inline {
+    font-family: Arial, sans-serif;
+}
+
+.form-fieldset {
+    border: var(--pixel-border); /* Pixel border for fieldset */
+    border-radius: 0;
+    padding: 15px;
+    margin-bottom: 20px;
+    box-shadow: 2px 2px 0px rgba(0,0,0,0.3); /* Subtle shadow for fieldset */
+}
+
+.form-fieldset legend {
+    font-weight: bold;
+    padding: 0 10px;
+    font-size: 1.1em;
+    font-family: 'Press Start 2P', cursive, monospace; /* Pixel font for legend */
+    background-color: var(--bg-color); /* Match background behind legend */
+    color: var(--text-color);
+}
+
+.form-help-text {
+    font-size: 0.85em;
+    margin-bottom: 15px;
+    padding-left: 5px;
+    font-style: italic;
+    font-family: Arial, sans-serif; /* Readable font for help text */
+}
+
+.form-help-text a {
+    text-decoration: underline;
+    color: var(--link-color);
+}
+
+.checkbox-label {
+    font-family: Arial, sans-serif; /* Readable font for checkboxes */
+}
+
+/* Game Grid and Cards (Library and IGDB search results) */
+.game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 20px;
+}
+
+.game-card {
+    background-color: var(--card-bg); /* Card background from theme */
+    border: var(--pixel-border); /* Pixel border for cards */
+    border-radius: 0; /* No round corners */
+    overflow: hidden;
+    text-align: center;
+    padding-bottom: 10px;
+
+    /* Hover effect */
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.5); /* Initial shadow */
+}
+
+.game-card:hover {
+    transform: scale(1.03); /* Slightly less aggressive scale for subtlety */
+    box-shadow: 5px 5px 0px var(--link-color); /* More prominent shadow on hover, using accent color */
+    z-index: 10;
+}
+
+.game-card a {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.game-card img {
+    max-width: 100%;
+    height: 180px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 10px auto;
+    border: 1px dashed var(--border-color); /* Dashed border for covers */
+}
+
+.game-card h3 {
+    font-size: 1.1em;
+    margin: 10px 5px 5px 5px;
+    height: 3.3em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -line-clamp: 2;
+    -webkit-box-orient: vertical;
+    font-family: Arial, sans-serif; /* Readable font for card titles */
+}
+
+.game-card h3 a {
+    color: var(--text-color);
+}
+.game-card h3 a:hover {
+    color: var(--link-hover-color);
+    text-decoration: underline;
+}
+
+.game-card p {
+    font-size: 0.9em;
+    margin: 0 5px 10px 5px;
+    font-family: Arial, sans-serif; /* Readable font for card system */
+}
+
+.game-card .game-actions { /* These styles are for the buttons on detail/search pages, not library cards */
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 0 5px;
+}
+
+/* Game Detail Page */
+.game-detail-card {
+    display: flex;
+    flex-wrap: wrap;
+    background-color: var(--card-bg); /* Background from theme */
+    border: var(--pixel-border); /* Border from theme */
+    border-radius: 0;
+    padding: 20px;
+    gap: 20px;
+    box-shadow: 4px 4px 0px rgba(0,0,0,0.5); /* Chunky shadow for detail card */
+}
+
+.game-detail-cover {
+    flex: 1;
+    min-width: 200px;
+    max-width: 300px;
+    text-align: center;
+}
+
+.game-detail-cover img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0; /* No round corners for cover */
+    border: var(--pixel-border); /* Pixel border for detail cover */
+}
+
+.game-detail-info {
+    flex: 2;
+    min-width: 300px;
+}
+
+.game-detail-info h2 {
+    border-bottom: none;
+    margin-bottom: 10px;
+}
+
+.game-detail-info p {
+    margin-bottom: 8px;
+}
+
+.game-detail-info .game-actions {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* Current Cover Preview on Edit Page */
+img.current-cover-preview {
+    max-width: 150px;
+    height: auto;
+    display: block;
+    margin-top: 10px;
+    border: 1px solid var(--border-color); /* Themed border */
+    border-radius: 0;
+}
+
+/* Dashboard Cards */
+.dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.dashboard-card {
+    background-color: var(--card-bg); /* Background from theme */
+    border: var(--pixel-border); /* Border from theme */
+    border-radius: 0;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 3px 3px 0px rgba(0,0,0,0.5); /* Subtle shadow for depth */
+}
+
+.dashboard-card h2 {
+    border-bottom: none;
+    margin-bottom: 10px;
+    font-size: 1.5em;
+    font-family: 'Press Start 2P', cursive, monospace; /* Pixel font for dashboard titles */
+}
+
+.dashboard-card p.count {
+    font-size: 3em;
+    font-weight: bold;
+    margin: 10px 0;
+    font-family: 'Press Start 2P', cursive, monospace; /* Pixel font for counts */
+    color: var(--primary-color); /* Highlight counts with primary color */
+}
+
+.dashboard-card .systems-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+}
+
+.dashboard-card .systems-list ul li {
+    margin-bottom: 8px;
+    font-size: 1.1em;
+    font-family: Arial, sans-serif; /* Readable font for system list */
+}
+
+.dashboard-card .systems-list ul li a {
+    text-decoration: none;
+    font-weight: bold;
+    color: var(--link-color);
+}
+.dashboard-card .systems-list ul li a:hover {
+    color: var(--link-hover-color);
+    text-decoration: underline;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    header .container {
+        flex-direction: column;
+        text-align: center;
+    }
+    header nav ul {
+        margin-top: 10px;
+        justify-content: center;
+    }
+    header nav ul li {
+        margin: 0 10px;
+    }
+
+    .game-detail-card {
+        flex-direction: column;
+        align-items: center;
+    }
+    .game-detail-cover, .game-detail-info {
+        max-width: 100%;
+        min-width: unset;
+    }
+    .game-detail-info {
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        width: 95%;
+    }
+    .game-grid {
+        grid-template-columns: 1fr;
+    }
+    .game-card img {
+        height: 200px;
+    }
+    .button {
+        font-size: 0.7em; /* Make buttons slightly smaller on small screens */
+        padding: 8px 12px;
+    }
+}

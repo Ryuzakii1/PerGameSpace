@@ -1,125 +1,44 @@
 {% extends "base.html" %}
 
-{% block title %}Settings - Your Game Library{% endblock %}
-
-{% block head_extra %}
-    {# You might have specific styles for the settings form or theme options here, if not already in style.css #}
-{% endblock %}
-
 {% block content %}
-    <header>
-        <h1>⚙️ Settings</h1>
-    </header>
+<h2>Application Settings</h2>
 
-    <form method="POST" action="{{ url_for('settings') }}" class="settings-form">
-        <section class="form-section">
-            <h2>Theme Settings</h2>
-            <div class="form-group theme-selector">
-                <label for="theme-select">Select Theme:</label>
-                <div class="theme-options-container">
-                    {% for theme_key, theme_data in themes.items() %}
-                    <div class="theme-option" onclick="previewTheme('{{ theme_key }}')" data-theme-key="{{ theme_key }}">
-                        <span class="theme-name">{{ theme_data.name }}</span>
-                        <span class="theme-description">{{ theme_data.description }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-                <input type="hidden" id="selectedTheme" name="theme" value="{{ theme }}">
-            </div>
-            
-            <div class="form-group checkbox-group">
-                <label class="switch">
-                    <input type="checkbox" id="dark-mode-toggle">
-                    <span class="slider round"></span>
-                </label>
-                <label for="dark-mode-toggle" class="toggle-label">Dark Mode</label>
-            </div>
-        </section>
+<form method="POST">
+    <fieldset class="form-fieldset">
+        <legend>Theme Settings</legend>
+        <div class="form-group">
+            <label for="theme">Select Theme:</label>
+            <select id="theme" name="theme">
+                {% for theme_name in themes %}
+                    <option value="{{ theme_name }}" {% if theme_name == current_theme %}selected{% endif %}>
+                        {{ theme_name|capitalize }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </fieldset>
 
-        <section class="form-section">
-            <h2>API Configuration</h2>
-            <div class="form-group">
-                <label for="igdb_client_id">IGDB Client ID:</label>
-                <input type="text" id="igdb_client_id" name="igdb_client_id" value="{{ api_config.igdb_client_id }}" placeholder="Enter IGDB Client ID">
-            </div>
-            <div class="form-group">
-                <label for="igdb_client_secret">IGDB Client Secret:</label>
-                <input type="password" id="igdb_client_secret" name="igdb_client_secret" value="{{ api_config.igdb_client_secret }}" placeholder="Enter IGDB Client Secret">
-            </div>
-            <div class="form-group">
-                <label for="google_api_key">Google API Key:</label>
-                <input type="text" id="google_api_key" name="google_api_key" value="{{ api_config.google_api_key }}" placeholder="Enter Google Custom Search API Key">
-            </div>
-            <div class="form-group">
-                <label for="google_cx">Google CX (Search Engine ID):</label>
-                <input type="text" id="google_cx" name="google_cx" value="{{ api_config.google_cx }}" placeholder="Enter Google Custom Search Engine ID">
-            </div>
-        </section>
+    <fieldset class="form-fieldset">
+        <legend>IGDB API Credentials (from Twitch Developers)</legend>
+        <p class="form-help-text">
+            These are required for searching and downloading game covers from IGDB.
+            Register an application on <a href="https://dev.twitch.tv/" target="_blank">Twitch Developers</a>
+            to get your Client ID and Client Secret.
+        </p>
+        <div class="form-group">
+            <label for="igdb_client_id">Client ID:</label>
+            <input type="text" id="igdb_client_id" name="igdb_client_id" 
+                   value="{{ get_setting('igdb_client_id', '') }}" 
+                   placeholder="Your Twitch Client ID">
+        </div>
+        <div class="form-group">
+            <label for="igdb_client_secret">Client Secret:</label>
+            <input type="password" id="igdb_client_secret" name="igdb_client_secret" 
+                   value="{{ get_setting('igdb_client_secret', '') }}" 
+                   placeholder="Your Twitch Client Secret">
+        </div>
+    </fieldset>
 
-        <button type="submit" class="btn">Save Settings</button>
-    </form>
-{% endblock %}
-
-{% block scripts_extra %}
-    <script>
-        const themeOptions = document.querySelectorAll('.theme-option');
-        const selectedThemeInput = document.getElementById('selectedTheme');
-        const darkModeToggle = document.getElementById('dark-mode-toggle');
-
-        function updateSelectedThemeUI() {
-            const currentTheme = selectedThemeInput.value;
-            themeOptions.forEach(option => {
-                const themeKey = option.dataset.themeKey;
-                if (themeKey === currentTheme) {
-                    option.classList.add('selected');
-                } else {
-                    option.classList.remove('selected');
-                }
-            });
-        }
-
-        function previewTheme(themeKey) {
-            selectedThemeInput.value = themeKey;
-            updateSelectedThemeUI();
-
-            const body = document.body;
-            // Remove existing theme classes
-            body.classList.remove('modern-theme', 'crt-theme', 'arcade-theme');
-            // Add the new theme class
-            if (themeKey !== 'modern') { // Assuming 'modern' might not add a specific class, or it's your default
-                body.classList.add(`${themeKey}-theme`);
-            }
-            // Re-apply dark mode if it was active
-            if (darkModeToggle.checked) {
-                body.classList.add('dark-mode');
-            }
-
-            // Save the theme to local storage for persistence across pages (if theme_handler.js uses this)
-            localStorage.setItem('theme', themeKey); 
-        }
-
-        function toggleDarkMode() {
-            if (darkModeToggle.checked) {
-                document.body.classList.add('dark-mode');
-            } else {
-                document.body.classList.remove('dark-mode');
-            }
-            localStorage.setItem('dark-mode', darkModeToggle.checked);
-        }
-
-        // Event listeners
-        darkModeToggle.addEventListener('change', toggleDarkMode);
-
-        // Initial setup on load
-        document.addEventListener('DOMContentLoaded', () => {
-            // Apply theme from localStorage, which theme_handler.js should handle first
-            // Ensure UI state for settings matches current theme and dark mode
-            updateSelectedThemeUI(); 
-            darkModeToggle.checked = localStorage.getItem('dark-mode') === 'true';
-            
-            // This call to previewTheme ensures the body class is set correctly
-            // based on the initial theme and dark mode state, important for correct rendering
-            previewTheme(selectedThemeInput.value); 
-        });
-    </script>
+    <button type="submit" class="button primary">Save Settings</button>
+</form>
 {% endblock %}

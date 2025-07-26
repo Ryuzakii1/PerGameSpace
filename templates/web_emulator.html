@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Playing {{ game.title }}{% endblock %}
+
+{% block content %}
+<div class="emulator-container">
+    <h1 class="text-3xl font-bold text-white mb-6">Playing {{ game.title }} ({{ game.system }})</h1>
+
+    <div id="emulator-screen" class="w-full max-w-3xl bg-black rounded-lg shadow-xl overflow-hidden relative">
+        <canvas id="snes-canvas" width="512" height="448"></canvas> 
+        <div id="loading-overlay" class="absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center text-white text-xl flex-col">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+            <p id="loading-message">Click to start the game</p>
+        </div>
+    </div>
+
+    <div class="controls-grid mt-6">
+        <button id="playPauseButton" class="control-button">Pause</button>
+        <button id="resetButton" class="control-button">Reset</button>
+        <button id="saveStateButton" class="control-button">Save State</button>
+        <button id="loadStateButton" class="control-button">Load State</button>
+        <a href="{{ url_for('library.game_detail', game_id=game.id) }}" class="control-button secondary-button">Back to Game Details</a>
+    </div>
+    <div id="statusMessage" class="status-message"></div>
+</div>
+<script type="module">
+    import { Nostalgist } from 'https://unpkg.com/nostalgist@latest/dist/nostalgist.js';
+
+    const romUrl = "{{ rom_url }}";
+    const gameDetails = JSON.parse('{{ game | tojson }}');
+    const gameTitle = gameDetails.title;
+    const systemName = gameDetails.system;
+
+    const canvas = document.getElementById('snes-canvas');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingMessage = document.getElementById('loading-message');
+    const statusMessageDiv = document.getElementById('statusMessage');
+    const playPauseButton = document.getElementById('playPauseButton');
+    const resetButton = document.getElementById('resetButton');
+    const saveStateButton = document.getElementById('saveStateButton');
+    const loadStateButton = document.getElementById('loadStateButton');
+    const emulatorScreen = document.getElementById('emulator-screen');
+
+    let nostalgist = null;
+    let isPaused = false;
+    let savedState = null;
+
+    function updateStatus(message, type = 'info') {
+        statusMessageDiv.textContent = message;
+        statusMessageDiv.className = `status-message mt-4 text-sm ${type === 'error' ? 'text-red-400' : 'text-gray-300'}`;
+    }
+
+    function hideLoadingOverlay() {
+        loadingOverlay.classList.add('hidden');
+    }
+
+    function showLoadingOverlay(message = 'Click to start the game') {
+        loadingMessage.textContent = message;
+        loadingOverlay.classList.remove('hidden');
+    }
+
+    async function initializeEmulator() {
+        showLoadingOverlay('Initializing emulator...');
+        try {
+            let core = 'snes9x';
+            const coreUrl = `https://cdn.jsdelivr.net/npm/nostalgist@latest/dist/cores/${core}_libretro.wasm`;
+
+            const nostalgistConfig = {
+                element: canvas,
+                core: core,
+                rom: romUrl,
+                coreUrl: coreUrl,
+                baseUrl: '',
+                audio: true,
+                onLoad: () => {
+                    updateStatus(`Game "${gameTitle}" loaded.`);
+                    hideLoadingOverlay();
+                    isPaused = false;
+                    playPauseButton.textContent = 'Pause';
+                },
+                onPause: () => {
+                    updateStatus('Game paused.');
+                    isPaused = true;
+                    playPauseButton.textContent = 'Play';
+                },
+                onResume: () => {
+                    updateStatus('Game resumed.');
+                    isPaused = false;
+                    playPauseButton.textContent = 'Pause';
+                },
+                onError: (error) => {
+                    console.error("Nostalgist.js Error:", error);
+                    updateStatus(`Error loading emulator: ${error.message || error}.`, 'error');
+                    hideLoadingOverlay();
+                }
+            };
+
+            nostalgist = await Nostalgist.launch(nostalgistConfig);
+            updateStatus('Emulator initialized. Loading ROM...');
+        } catch (error) {
+            console.error("Failed to initialize Nostalgist.js:", error);
+            updateStatus(`Failed to load emulator: ${error.message || error}`, 'error');
+            hideLoadingOverlay();
+        }
+    }
+
+    loadingOverlay.addEventListener('click', () => {
+        initializeEmulator();
+        hideLoadingOverlay();
+    });
+
+    playPauseButton.addEventListener('click', () => {
+        if (!nostalgist) return updateStatus('Emulator not loaded yet.', 'warning');
+        isPaused ? nostalgist.resume() : nostalgist.pause();
+    });
+
+    resetButton.addEventListener('click', () => {
+        if (!nostalgist) return updateStatus('Emulator not loaded yet.', 'warning');
+        updateStatus('Resetting game...');
+        nostalgist.exit().then(() => initializeEmulator()).catch(error => {
+            console.error("Error during reset:", error);
+            updateStatus(`Error resetting game: ${error.message}`, 'error');
+        });
+    });
+
+    saveStateButton.addEventListener('click', async () => {
+        if (!nostalgist) return updateStatus('Emulator not loaded yet.', 'warning');
+        try {
+            updateStatus('Saving state...');
+            const { state } = await nostalgist.saveState();
+            savedState = state;
+            updateStatus('Game state saved.');
+        } catch (error) {
+            console.error("Error saving state:", error);
+            updateStatus(`Error saving state: ${error.message}`, 'error');
+        }
+    });
+
+    loadStateButton.addEventListener('click', async () => {
+        if (!nostalgist) return updateStatus('Emulator not loaded yet.', 'warning');
+        if (!savedState) return updateStatus('No saved state found.', 'warning');
+        try {
+            updateStatus('Loading state...');
+            await nostalgist.loadState(savedState);
+            updateStatus('Game state loaded.');
+            if (isPaused) nostalgist.resume();
+        } catch (error) {
+            console.error("Error loading state:", error);
+            updateStatus(`Error loading state: ${error.message}`, 'error');
+        }
+    });
+
+    const KEY_MAP = {
+        'ArrowLeft': { port: 0, index: 0, id: 7 },
+        'ArrowRight': { port: 0, index: 0, id: 8 },
+        'ArrowUp': { port: 0, index: 0, id: 5 },
+        'ArrowDown': { port: 0, index: 0, id: 6 },
+        'z': { port: 0, index: 0, id: 0 },
+        'x': { port: 0, index: 0, id: 1 },
+        'a': { port: 0, index: 0, id: 2 },
+        's': { port: 0, index: 0, id: 3 },
+        'd': { port: 0, index: 0, id: 4 },
+        'c': { port: 0, index: 0, id: 9 },
+        'q': { port: 0, index: 0, id: 10 },
+        'w': { port: 0, index: 0, id: 11 },
+    };
+
+    document.addEventListener('keydown', (e) => {
+        if (nostalgist && KEY_MAP[e.key]) {
+            const { port, index, id } = KEY_MAP[e.key];
+            nostalgist.setButton(port, index, id, true);
+            e.preventDefault();
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (nostalgist && KEY_MAP[e.key]) {
+            const { port, index, id } = KEY_MAP[e.key];
+            nostalgist.setButton(port, index, id, false);
+            e.preventDefault();
+        }
+    });
+</script>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+/* original styles retained unchanged */
+</style>
+{% endblock %}
