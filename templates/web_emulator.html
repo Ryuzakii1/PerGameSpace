@@ -1,3 +1,4 @@
+{# templates/web_emulator.html #}
 {% extends "base.html" %}
 
 {% block title %}Playing {{ game.title }}{% endblock %}
@@ -7,7 +8,8 @@
     <h1 class="text-3xl font-bold text-white mb-6">Playing {{ game.title }} ({{ game.system }})</h1>
 
     <div id="emulator-screen" class="w-full max-w-3xl bg-black rounded-lg shadow-xl overflow-hidden relative">
-        <canvas id="snes-canvas" width="512" height="448"></canvas> 
+        {# Initial width and height attributes for the canvas. These will be updated by JS based on aspect ratio. #}
+        <canvas id="snes-canvas" width="640" height="480"></canvas> 
         <div id="loading-overlay" class="absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center text-white text-xl flex-col">
             <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
             <p id="loading-message">Click to start the game</p>
@@ -23,14 +25,44 @@
     </div>
     <div id="statusMessage" class="status-message"></div>
 </div>
+
 <script type="module">
+    // Import Nostalgist.js from a CDN
     import { Nostalgist } from 'https://unpkg.com/nostalgist@latest/dist/nostalgist.js';
 
+    // Get the ROM URL and dynamic emulator parameters passed from the Flask backend
     const romUrl = "{{ rom_url }}";
     const gameDetails = JSON.parse('{{ game | tojson }}');
     const gameTitle = gameDetails.title;
     const systemName = gameDetails.system;
+    
+    // --- NEW: Retrieve dynamic core and aspect ratio from Flask ---
+    const emulatorCore = "{{ emulator_core }}";
+    const emulatorAspectRatioStr = "{{ emulator_aspect_ratio }}"; // e.g., "4/3" or "10/9"
 
+    // Parse the aspect ratio string into a numerical value (e.g., "4/3" becomes 1.333)
+    let aspectRatio = 4 / 3; // Default to 4:3 in case of parsing error
+    try {
+        const parts = emulatorAspectRatioStr.split('/');
+        if (parts.length === 2) {
+            const num = parseFloat(parts[0]);
+            const den = parseFloat(parts[1]);
+            if (!isNaN(num) && !isNaN(den) && den !== 0) {
+                aspectRatio = num / den;
+            }
+        }
+    } catch (e) {
+        console.error("Error parsing aspect ratio:", e);
+    }
+
+    // --- DEBUGGING LOGS ---
+    console.log("DEBUG: romUrl received from Flask:", romUrl);
+    console.log("DEBUG: game object details:", gameDetails);
+    console.log("DEBUG: emulatorCore received:", emulatorCore);
+    console.log("DEBUG: emulatorAspectRatio (parsed):", aspectRatio);
+    // --- END DEBUGGING LOGS ---
+
+    // Get references to HTML elements
     const canvas = document.getElementById('snes-canvas');
     const loadingOverlay = document.getElementById('loading-overlay');
     const loadingMessage = document.getElementById('loading-message');
@@ -45,39 +77,94 @@
     let isPaused = false;
     let savedState = null;
 
+    /**
+     * Updates the status message displayed on the page.
+     * @param {string} message - The message to display.
+     * @param {string} type - The type of message ('info' or 'error') for styling.
+     */
     function updateStatus(message, type = 'info') {
         statusMessageDiv.textContent = message;
         statusMessageDiv.className = `status-message mt-4 text-sm ${type === 'error' ? 'text-red-400' : 'text-gray-300'}`;
     }
 
+    /**
+     * Hides the loading overlay.
+     */
     function hideLoadingOverlay() {
         loadingOverlay.classList.add('hidden');
     }
 
+    /**
+     * Shows the loading overlay with an optional message.
+     * @param {string} message - The message to display on the loading overlay.
+     */
     function showLoadingOverlay(message = 'Click to start the game') {
         loadingMessage.textContent = message;
         loadingOverlay.classList.remove('hidden');
     }
 
+    /**
+     * Resizes the canvas element to match its parent container's dimensions
+     * while maintaining the dynamically determined aspect ratio.
+     * This function is called by the ResizeObserver.
+     */
+    function updateCanvasDimensions() {
+        // Ensure emulatorScreen has a computed size before trying to use it
+        if (emulatorScreen.clientWidth === 0 || emulatorScreen.clientHeight === 0) {
+            console.warn('emulatorScreen has zero dimensions, skipping canvas resize.');
+            return;
+        }
+
+        const parentWidth = emulatorScreen.clientWidth;
+        const parentHeight = emulatorScreen.clientHeight;
+
+        // Calculate dimensions to maintain the dynamic aspect ratio within parent
+        let newWidth = parentWidth;
+        let newHeight = parentWidth / aspectRatio; // Calculate height based on dynamic aspect ratio
+
+        if (newHeight > parentHeight) {
+            // If calculated height exceeds parent's height, adjust based on parent height
+            newHeight = parentHeight;
+            newWidth = parentHeight * aspectRatio; // Calculate width based on dynamic aspect ratio
+        }
+
+        // Set canvas attributes directly
+        // These are the internal pixel dimensions for the drawing buffer
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+
+        console.log('Canvas attributes updated to:', canvas.width, 'x', canvas.height);
+    }
+
+    /**
+     * Initializes and launches the Nostalgist.js emulator.
+     */
     async function initializeEmulator() {
         showLoadingOverlay('Initializing emulator...');
         try {
-            let core = 'snes9x';
-            const coreUrl = `https://cdn.jsdelivr.net/npm/nostalgist@latest/dist/cores/${core}_libretro.wasm`;
+            // Use the dynamically determined core
+            const coreUrl = `https://cdn.jsdelivr.net/npm/nostalgist@latest/dist/cores/${emulatorCore}_libretro.wasm`;
 
             const nostalgistConfig = {
                 element: canvas,
-                core: core,
+                core: emulatorCore, // Use the dynamic core
                 rom: romUrl,
                 coreUrl: coreUrl,
-                baseUrl: '',
-                audio: true,
+                baseUrl: '', // Keep baseUrl empty as romUrl is already absolute
+                audio: true, // Ensure audio is enabled
+                retroarchConfig: {
+                    // rewind_enable: true,
+                },
                 onLoad: () => {
                     updateStatus(`Game "${gameTitle}" loaded.`);
                     hideLoadingOverlay();
                     isPaused = false;
                     playPauseButton.textContent = 'Pause';
+                    // These logs will now reflect the dimensions Nostalgist.js sets based on CSS
+                    console.log('Emulator screen dimensions:', emulatorScreen.offsetWidth, 'x', emulatorScreen.offsetHeight);
+                    console.log('Canvas dimensions:', canvas.offsetWidth, 'x', canvas.offsetHeight);
                 },
+                onRun: () => {},
                 onPause: () => {
                     updateStatus('Game paused.');
                     isPaused = true;
@@ -90,46 +177,61 @@
                 },
                 onError: (error) => {
                     console.error("Nostalgist.js Error:", error);
-                    updateStatus(`Error loading emulator: ${error.message || error}.`, 'error');
+                    updateStatus(`Error loading emulator: ${error.message || error}. Please check console for details.`, 'error');
                     hideLoadingOverlay();
                 }
             };
 
+            console.log("DEBUG: Nostalgist.launch config:", nostalgistConfig);
             nostalgist = await Nostalgist.launch(nostalgistConfig);
             updateStatus('Emulator initialized. Loading ROM...');
+
         } catch (error) {
             console.error("Failed to initialize Nostalgist.js:", error);
-            updateStatus(`Failed to load emulator: ${error.message || error}`, 'error');
+            updateStatus(`Failed to load emulator: ${error.message || error}. Please ensure the ROM URL is correct and the core is available.`, 'error');
             hideLoadingOverlay();
         }
     }
 
-    loadingOverlay.addEventListener('click', () => {
-        initializeEmulator();
-        hideLoadingOverlay();
-    });
+    // --- Control Event Listeners ---
 
     playPauseButton.addEventListener('click', () => {
-        if (!nostalgist) return updateStatus('Emulator not loaded yet.', 'warning');
-        isPaused ? nostalgist.resume() : nostalgist.pause();
+        if (!nostalgist) {
+            updateStatus('Emulator not loaded yet.', 'warning');
+            return;
+        }
+        if (isPaused) {
+            nostalgist.resume();
+        } else {
+            nostalgist.pause();
+        }
     });
 
     resetButton.addEventListener('click', () => {
-        if (!nostalgist) return updateStatus('Emulator not loaded yet.', 'warning');
+        if (!nostalgist) {
+            updateStatus('Emulator not loaded yet.', 'warning');
+            return;
+        }
         updateStatus('Resetting game...');
-        nostalgist.exit().then(() => initializeEmulator()).catch(error => {
-            console.error("Error during reset:", error);
+        nostalgist.exit().then(() => {
+            initializeEmulator();
+        }).catch(error => {
+            console.error("Error during reset/exit:", error);
             updateStatus(`Error resetting game: ${error.message}`, 'error');
         });
     });
 
     saveStateButton.addEventListener('click', async () => {
-        if (!nostalgist) return updateStatus('Emulator not loaded yet.', 'warning');
+        if (!nostalgist) {
+            updateStatus('Emulator not loaded yet.', 'warning');
+            return;
+        }
         try {
             updateStatus('Saving state...');
             const { state } = await nostalgist.saveState();
             savedState = state;
-            updateStatus('Game state saved.');
+            updateStatus('Game state saved successfully!');
+            console.log("Saved state:", savedState);
         } catch (error) {
             console.error("Error saving state:", error);
             updateStatus(`Error saving state: ${error.message}`, 'error');
@@ -137,19 +239,28 @@
     });
 
     loadStateButton.addEventListener('click', async () => {
-        if (!nostalgist) return updateStatus('Emulator not loaded yet.', 'warning');
-        if (!savedState) return updateStatus('No saved state found.', 'warning');
+        if (!nostalgist) {
+            updateStatus('Emulator not loaded yet.', 'warning');
+            return;
+        }
+        if (!savedState) {
+            updateStatus('No saved state found to load.', 'warning');
+            return;
+        }
         try {
             updateStatus('Loading state...');
             await nostalgist.loadState(savedState);
-            updateStatus('Game state loaded.');
-            if (isPaused) nostalgist.resume();
+            updateStatus('Game state loaded successfully!');
+            if (isPaused) {
+                nostalgist.resume();
+            }
         } catch (error) {
             console.error("Error loading state:", error);
             updateStatus(`Error loading state: ${error.message}`, 'error');
         }
     });
 
+    // --- Keyboard Input Handling ---
     const KEY_MAP = {
         'ArrowLeft': { port: 0, index: 0, id: 7 },
         'ArrowRight': { port: 0, index: 0, id: 8 },
@@ -180,12 +291,165 @@
             e.preventDefault();
         }
     });
+
+    // Use ResizeObserver for more robust canvas resizing
+    const resizeObserver = new ResizeObserver(entries => {
+        for (let entry of entries) {
+            if (entry.target === emulatorScreen) {
+                updateCanvasDimensions();
+            }
+        }
+    });
+
+    // Initialize the emulator and observer when the entire page has loaded
+    window.addEventListener('load', () => {
+        // Start observing before initializing emulator to ensure initial dimensions are set
+        resizeObserver.observe(emulatorScreen);
+        updateCanvasDimensions(); // Set initial canvas dimensions
+        // The emulator will be initialized on the first click on the overlay
+        showLoadingOverlay(); // Show the "Click to start" message
+    });
+
+    // Event listener for the loading overlay to start the emulator
+    loadingOverlay.addEventListener('click', () => {
+        initializeEmulator();
+        // The hideLoadingOverlay() is called inside initializeEmulator's onLoad callback
+    });
+
 </script>
 {% endblock %}
 
 {% block styles %}
 {{ super() }}
 <style>
-/* original styles retained unchanged */
+    /* Custom styles for the emulator page */
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* Prevent overall scrolling */
+    }
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: #1a202c;
+        color: #e2e8f0;
+        display: flex; /* Make body a flex container */
+        justify-content: center; /* Center horizontally */
+        align-items: center; /* Center vertically */
+        box-sizing: border-box;
+        padding: 20px;
+    }
+    .emulator-container {
+        background-color: #2d3748;
+        border-radius: 1rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column; /* Stack children vertically */
+        align-items: center;
+        max-width: 900px;
+        width: 100%;
+        flex-grow: 1; /* Allow it to grow to fill space */
+        flex-shrink: 1; /* Allow it to shrink */
+        overflow: hidden; /* Hide any overflow within the container */
+        /* Use calc to ensure it fits within the viewport height, accounting for body padding */
+        height: calc(100vh - 40px); /* 100vh - (2 * body padding) */
+    }
+    h1 {
+        color: #fff;
+        font-size: 2.25rem;
+        font-weight: 800;
+        margin-bottom: 2rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+    #emulator-screen {
+        width: 100%;
+        max-width: 768px; /* Maintain max-width for larger screens */
+        /* height: auto; - Removed as it can conflict with flex-grow and max-height */
+        overflow: hidden;
+        flex-shrink: 0; /* Prevent shrinking */
+        border: 4px solid #4a5568;
+        box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.7);
+        flex-grow: 1; /* Allow it to grow to fill vertical space in .emulator-container */
+        /* Crucial: Limit its maximum height to its parent's available space */
+        max-height: 100%; 
+        display: flex; /* Make it a flex container for the canvas */
+        justify-content: center;
+        align-items: center;
+    }
+    #snes-canvas {
+        background-color: black;
+        /* The canvas itself will fill the parent, and its attributes will be set by JS */
+        /* No fixed width/height here; rely on JS attributes */
+        display: block;
+        object-fit: contain; /* Ensure emulator content scales correctly within the canvas */
+    }
+    .controls-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        width: 100%;
+        max-width: 768px;
+        margin-top: 2rem;
+        flex-shrink: 0; /* Prevent controls from shrinking */
+    }
+    .control-button {
+        background-image: linear-gradient(to bottom right, #8b5cf6, #6366f1);
+        color: #fff;
+        font-weight: 700;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        transition-property: all;
+        transition-duration: 200ms;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transform: scale(1);
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        width: 100%;
+    }
+    .control-button:hover {
+        background-image: linear-gradient(to bottom right, #7c3aed, #4f46e5);
+        transform: scale(1.05);
+    }
+    .control-button:focus {
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.75);
+    }
+    .secondary-button {
+        background-color: #4b5563;
+        background-image: none;
+    }
+    .secondary-button:hover {
+        background-color: #374151;
+        background-image: none;
+    }
+    .secondary-button:focus {
+        box-shadow: 0 0 0 4px rgba(107, 114, 128, 0.75);
+    }
+    .status-message {
+        margin-top: 1rem;
+        font-size: 0.875rem;
+        color: #d1d5db;
+        min-height: 1.5em;
+        flex-shrink: 0; /* Prevent status message from shrinking */
+    }
+    /* Loading spinner animation */
+    .loader {
+        border-top-color: #3498db;
+        -webkit-animation: spinner 1.5s linear infinite;
+        animation: spinner 1.5s linear infinite;
+    }
+
+    @-webkit-keyframes spinner {
+        0% { -webkit-transform: rotate(0deg); }
+        100% { -webkit-transform: rotate(360deg); }
+    }
+
+    @keyframes spinner {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
 </style>
 {% endblock %}

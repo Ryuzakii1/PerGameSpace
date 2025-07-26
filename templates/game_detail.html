@@ -1,3 +1,4 @@
+{# templates/game_detail.html #}
 {% extends "base.html" %}
 
 {% block content %}
@@ -19,12 +20,13 @@
         <p><strong>Play Count:</strong> {{ game.play_count }}</p>
         
         <div class="game-actions">
-            {# Original Play button for local/download #}
-            <a href="{{ url_for('library.launch_game', game_id=game.id) }}" class="button primary">Play/Download Game</a>
+            {# Original Play button for local emulators #}
+            <a href="{{ url_for('library.launch_game', game_id=game.id) }}" class="button primary">Play Locally</a>
             
-            {# NEW: Button to launch web emulator (only for SNES) #}
-            {# Adjust 'super nintendo' to exactly match how you've entered it in your database #}
-            {% if game.system.lower() == 'super nintendo' %} 
+            {# NEW: Button to launch web emulator for supported systems #}
+            {% set system_lower = game.system.lower() %}
+            {# Added 'gameboy color' (one word) to the condition #}
+            {% if system_lower == 'super nintendo' or system_lower == 'snes' or system_lower == 'game boy color' or system_lower == 'gameboy color' or system_lower == 'game boy' or system_lower == 'gbc' or system_lower == 'gb' %} 
                 <a href="{{ url_for('library.play_web_emulator', game_id=game.id) }}" class="button primary">Launch Web Emulator</a>
             {% endif %}
 

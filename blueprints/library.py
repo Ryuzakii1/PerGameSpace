@@ -135,7 +135,7 @@ def game_detail(game_id):
     return render_template('game_detail.html', game=game)
 
 
-# --- NEW: Web Emulator Route ---
+# --- Web Emulator Route ---
 @library_bp.route('/play_web/<int:game_id>')
 def play_web_emulator(game_id):
     conn = get_db_connection()
@@ -149,24 +149,35 @@ def play_web_emulator(game_id):
         if 'filepath' in game and game['filepath'] is not None:
             game['filepath'] = game['filepath'].replace('\\', '/')
 
-        # We need the filename part of the filepath to construct the URL
-        # The filepath stored is an absolute path (e.g., C:\...)
-        # We configured run.py to serve files from UPLOAD_FOLDER via /roms/<filename>
         rom_filename = os.path.basename(game['filepath'])
-        
-        # --- IMPORTANT CHANGE: Generate a full absolute URL for the ROM ---
-        # This ensures Nostalgist.js doesn't try to resolve it against a CDN base.
         rom_url = url_for('roms_file', filename=rom_filename, _external=True)
         
-        system_name = game['system'] # Get the system name from the game record
+        system_name_lower = game['system'].lower()
+        
+        # Determine core and aspect ratio based on system, including 'gameboy color' (one word)
+        emulator_core = ''
+        emulator_aspect_ratio = ''
 
-        # Add a basic security check: only allow SNES for web emulation for now
-        # Adjust 'Super Nintendo' to match your database entry exactly (case-insensitive due to .lower())
-        if system_name.lower() != 'super nintendo': # Example: 'super nintendo' or 'snes'
-            flash(f"Web emulation is only configured for Super Nintendo games at the moment. This is a {system_name} game.", 'error')
+        if system_name_lower == 'super nintendo' or system_name_lower == 'snes':
+            emulator_core = 'snes9x'
+            emulator_aspect_ratio = '4/3' # Standard SNES aspect ratio
+        elif system_name_lower in ['game boy color', 'gameboy color', 'game boy', 'gbc', 'gb']:
+            emulator_core = 'gambatte' # Nostalgist.js core for Game Boy / Game Boy Color
+            emulator_aspect_ratio = '10/9' # GBC aspect ratio (160 / 144)
+        # Add more elif conditions here for other systems as needed
+        # elif system_name_lower == 'nes':
+        #     emulator_core = 'fceumm'
+        #     emulator_aspect_ratio = '4/3'
+
+        if not emulator_core:
+            flash(f"Web emulation is not configured for system: {game['system']}.", 'error')
             return redirect(url_for('library.game_detail', game_id=game_id))
 
-        return render_template('web_emulator.html', game=game, rom_url=rom_url)
+        return render_template('web_emulator.html', 
+                               game=game, 
+                               rom_url=rom_url,
+                               emulator_core=emulator_core, # Pass the determined core
+                               emulator_aspect_ratio=emulator_aspect_ratio) # Pass the determined aspect ratio
     else:
         flash('Game not found.', 'error')
         return redirect(url_for('library.library'))
@@ -391,7 +402,7 @@ def edit_game(game_id):
         finally:
             conn.close()
 
-    return render_template('edit_game.html', game=game, systems=systems)
+    return render_template('upload_game.html', systems=systems)
 
 
 @library_bp.route('/delete/<int:game_id>')
@@ -442,57 +453,50 @@ def launch_game(game_id):
         conn.execute('UPDATE games SET last_played = ?, play_count = play_count + 1 WHERE id = ?', 
                      (current_time, game_id))
         conn.commit()
-        conn.close()
+        
+        system_name_lower = game['system'].lower()
+        emulator_path = None
+
+        # Query the emulator_configs table for the configured path
+        config_row = conn.execute('SELECT emulator_path FROM emulator_configs WHERE system_name = ?', (system_name_lower,)).fetchone()
+        if config_row:
+            emulator_path = config_row['emulator_path']
+        
+        conn.close() # Close connection after fetching all necessary data
+
+        if not emulator_path:
+            flash(f"No desktop emulator configured for system: {game['system']}. Please go to Settings to configure it.", 'error')
+            return redirect(url_for('library.game_detail', game_id=game['id']))
 
         emulator_command = []
-        # Emulator configurations (these are example paths, adjust for your system)
-        if game['system'].lower() == 'nes':
+        # Construct the command based on the system and retrieved path
+        if system_name_lower == 'nes':
+            emulator_command = [emulator_path, game['filepath']]
+        elif system_name_lower == 'snes':
+            emulator_command = [emulator_path, game['filepath']]
+        elif system_name_lower == 'n64':
+            emulator_command = [emulator_path, game['filepath']]
+        elif system_name_lower == 'gba':
+            emulator_command = [emulator_path, game['filepath']]
+        elif system_name_lower == 'mame':
+            emulator_command = [emulator_path, game['filepath']]
+        elif system_name_lower == 'dreamcast':
+            # Dreamcast might need special arguments
+            emulator_command = [emulator_path, '-run=dc', '-rom=' + game['filepath']]
+        elif system_name_lower == 'ps1':
+            # PS1 might need special arguments
+            emulator_command = [emulator_path, '-nogui', '-loadbin', game['filepath']]
+        elif system_name_lower == 'pc':
             if os.name == 'nt': # Windows
-                emulator_command = ['C:\\Emulators\\Nestopia\\nestopia.exe', game['filepath']]
-            else: # Linux/macOS (assuming emulator is in PATH)
-                emulator_command = ['nestopia', game['filepath']]
-        elif game['system'].lower() == 'snes':
-            if os.name == 'nt':
-                emulator_command = ['C:\\Emulators\\Snes9x\\snes9x.exe', game['filepath']]
-            else:
-                emulator_command = ['snes9x', game['filepath']]
-        elif game['system'].lower() == 'n64':
-            if os.name == 'nt':
-                emulator_command = ['C:\\Emulators\\Project64\\Project64.exe', game['filepath']]
-            else:
-                emulator_command = ['project64', game['filepath']]
-        elif game['system'].lower() == 'gba':
-            if os.name == 'nt':
-                emulator_command = ['C:\\Emulators\\VBA-M\\vbam.exe', game['filepath']]
-            else:
-                emulator_command = ['vbam', game['filepath']]
-        elif game['system'].lower() == 'mame':
-            if os.name == 'nt':
-                emulator_command = ['C:\\Emulators\\MAME\\mame.exe', game['filepath']]
-            else:
-                emulator_command = ['mame', game['filepath']]
-        elif game['system'].lower() == 'dreamcast':
-            if os.name == 'nt':
-                emulator_command = ['C:\\Emulators\\Demul\\demul.exe', '-run=dc', '-rom=' + game['filepath']]
-            else:
-                emulator_command = ['demul', '-run=dc', '-rom=' + game['filepath']]
-        elif game['system'].lower() == 'ps1':
-            if os.name == 'nt':
-                emulator_command = ['C:\\Emulators\\ePSXe\\ePSXe.exe', '-nogui', '-loadbin', game['filepath']]
-            else:
-                emulator_command = ['epsxe', '-nogui', '-loadbin', game['filepath']]
-        elif game['system'].lower() == 'pc':
-            if os.name == 'nt':
                 os.startfile(game['filepath']) # On Windows, this opens the file with its default program
                 flash(f"Launched PC game: {game['title']}", 'success')
                 return redirect(url_for('library.game_detail', game_id=game['id']))
-            else:
-                # On Linux/macOS, use subprocess.Popen to run the executable
+            else: # Linux/macOS
                 subprocess.Popen([game['filepath']], start_new_session=True)
                 flash(f"Launched PC game: {game['title']}", 'success')
                 return redirect(url_for('library.game_detail', game_id=game['id']))
         else:
-            flash(f"No emulator configured for system: {game['system']}", 'error')
+            flash(f"Unsupported system for desktop emulation: {game['system']}.", 'error')
             return redirect(url_for('library.game_detail', game_id=game['id']))
 
         if emulator_command:
@@ -500,7 +504,7 @@ def launch_game(game_id):
             flash(f"Launched {game['title']} using {game['system']} emulator.", 'success')
         
     except FileNotFoundError:
-        flash(f"Emulator for {game['system']} not found. Please check your configuration.", 'error')
+        flash(f"Emulator executable not found at '{emulator_path}'. Please check your settings.", 'error')
     except Exception as e:
         flash(f"An error occurred while launching the game: {e}", 'error')
     

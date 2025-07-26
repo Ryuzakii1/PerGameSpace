@@ -1,44 +1,86 @@
+{# templates/settings.html #}
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Application Settings</h2>
+<div class="container mx-auto p-4">
+    <h2 class="text-3xl font-bold text-white mb-6">Application Settings</h2>
 
-<form method="POST">
-    <fieldset class="form-fieldset">
-        <legend>Theme Settings</legend>
-        <div class="form-group">
-            <label for="theme">Select Theme:</label>
-            <select id="theme" name="theme">
-                {% for theme_name in themes %}
-                    <option value="{{ theme_name }}" {% if theme_name == current_theme %}selected{% endif %}>
-                        {{ theme_name|capitalize }}
-                    </option>
+    <form method="POST" class="space-y-8">
+        <fieldset class="bg-gray-800 rounded-lg shadow-xl p-6">
+            <legend class="text-2xl font-semibold text-white mb-4">Theme Settings</legend>
+            <div class="form-group">
+                <label for="theme" class="block text-gray-300 text-sm font-bold mb-2">Select Theme:</label>
+                <select id="theme" name="theme" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 text-white">
+                    {% for theme_name in themes %}
+                        <option value="{{ theme_name }}" {% if theme_name == current_theme %}selected{% endif %}>
+                            {{ theme_name|capitalize }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </fieldset>
+
+        <fieldset class="bg-gray-800 rounded-lg shadow-xl p-6">
+            <legend class="text-2xl font-semibold text-white mb-4">IGDB API Credentials (from Twitch Developers)</legend>
+            <p class="text-gray-400 text-sm mb-4">
+                These are required for searching and downloading game covers from IGDB.
+                Register an application on <a href="https://dev.twitch.tv/" target="_blank" class="text-blue-400 hover:text-blue-300">Twitch Developers</a>
+                to get your Client ID and Client Secret.
+            </p>
+            <div class="form-group mb-4">
+                <label for="igdb_client_id" class="block text-gray-300 text-sm font-bold mb-2">Client ID:</label>
+                <input type="text" id="igdb_client_id" name="igdb_client_id" 
+                       value="{{ get_setting('igdb_client_id', '') }}" 
+                       placeholder="Your Twitch Client ID"
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 text-white">
+            </div>
+            <div class="form-group">
+                <label for="igdb_client_secret" class="block text-gray-300 text-sm font-bold mb-2">Client Secret:</label>
+                <input type="password" id="igdb_client_secret" name="igdb_client_secret" 
+                       value="{{ get_setting('igdb_client_secret', '') }}" 
+                       placeholder="Your Twitch Client Secret"
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 text-white">
+            </div>
+        </fieldset>
+
+        {# NEW: Emulator Paths Settings #}
+        <fieldset class="bg-gray-800 rounded-lg shadow-xl p-6">
+            <legend class="text-2xl font-semibold text-white mb-4">Desktop Emulator Paths</legend>
+            <p class="text-gray-400 text-sm mb-4">
+                Configure the full path to the executable for each desktop emulator.
+                <br>Example: <code>C:\Emulators\Snes9x\snes9x.exe</code> (Windows) or <code>/usr/bin/snes9x</code> (Linux/macOS).
+                <br>Leave empty to clear a path.
+            </p>
+            {% if available_systems %}
+                {% for system in available_systems %}
+                    {# Create a unique ID and name for each input field based on system name #}
+                    {% set input_id = 'emulator_path_' + system.name.lower().replace(' ', '_').replace('.', '').replace('&', 'and') %}
+                    {% set input_name = input_id %}
+                    
+                    {# Find the current configured path for this system, if it exists #}
+                    {% set current_path = '' %}
+                    {% for config in emulator_configs %}
+                        {% if config.system_name == system.name.lower() %}
+                            {% set current_path = config.emulator_path %}
+                            {# Removed 'break' - Jinja2 does not support it directly. #}
+                            {# Since backend ensures unique system_name, last match is correct. #}
+                        {% endif %}
+                    {% endfor %}
+
+                    <div class="form-group mb-4">
+                        <label for="{{ input_id }}" class="block text-gray-300 text-sm font-bold mb-2">{{ system.name }} Emulator Path:</label>
+                        <input type="text" id="{{ input_id }}" name="{{ input_name }}" 
+                               value="{{ current_path }}" 
+                               placeholder="Path to {{ system.name }} emulator executable"
+                               class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 text-white">
+                    </div>
                 {% endfor %}
-            </select>
-        </div>
-    </fieldset>
+            {% else %}
+                <p class="text-gray-400">No systems found in your library. Add games to configure emulators.</p>
+            {% endif %}
+        </fieldset>
 
-    <fieldset class="form-fieldset">
-        <legend>IGDB API Credentials (from Twitch Developers)</legend>
-        <p class="form-help-text">
-            These are required for searching and downloading game covers from IGDB.
-            Register an application on <a href="https://dev.twitch.tv/" target="_blank">Twitch Developers</a>
-            to get your Client ID and Client Secret.
-        </p>
-        <div class="form-group">
-            <label for="igdb_client_id">Client ID:</label>
-            <input type="text" id="igdb_client_id" name="igdb_client_id" 
-                   value="{{ get_setting('igdb_client_id', '') }}" 
-                   placeholder="Your Twitch Client ID">
-        </div>
-        <div class="form-group">
-            <label for="igdb_client_secret">Client Secret:</label>
-            <input type="password" id="igdb_client_secret" name="igdb_client_secret" 
-                   value="{{ get_setting('igdb_client_secret', '') }}" 
-                   placeholder="Your Twitch Client Secret">
-        </div>
-    </fieldset>
-
-    <button type="submit" class="button primary">Save Settings</button>
-</form>
+        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">Save Settings</button>
+    </form>
+</div>
 {% endblock %}
