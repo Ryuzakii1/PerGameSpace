@@ -27,24 +27,25 @@
     </div>
 
     <div class="form-group">
-        <label for="cover_file">Replace Custom Cover Image (Optional):</label>
-        <input type="file" id="cover_file" name="cover_file" accept="image/*">
+      
         {% if game.cover_url %}
             <p class="file-info">Current cover:</p>
             <img src="{{ game.cover_url }}" alt="Current Cover" class="current-cover-preview">
             <label class="checkbox-label">
                 <input type="checkbox" name="clear_cover" value="true"> Clear current cover
             </label>
+              <label for="cover_file">Replace Custom Cover Image (Optional):</label>
+        <input type="file" id="cover_file" name="cover_file" accept="image/*">
         {% else %}
             <p class="file-info">No current cover.</p>
         {% endif %}
     </div>
 
     <fieldset class="form-fieldset">
-        <legend>Or Find New Cover on IGDB</legend>
+        <legend>Find New Cover on IGDB</legend>
         <div class="form-group">
             <label for="igdb_search_query">Search Game Title on IGDB:</label>
-            <input type="text" id="igdb_search_query" name="igdb_search_query" placeholder="e.g., The Legend of Zelda: Ocarina of Time">
+            <input type="text" id="igdb_search_query" name="igdb_search_query" placeholder="e.g., The Legend of Zelda: Ocarina of Time" value="{{ game.title }}" >
             <button type="button" onclick="searchIgdb()">Search IGDB</button>
         </div>
         <div id="igdb_results" class="game-grid" style="margin-top: 15px;">
@@ -69,7 +70,6 @@
         }
 
         try {
-            // Updated URL to point to the blueprint
             const response = await fetch("{{ url_for('igdb.igdb_search') }}?query=" + encodeURIComponent(query));
             const games = await response.json();
 
@@ -82,8 +82,12 @@
             games.forEach(game => {
                 const gameCard = document.createElement('div');
                 gameCard.className = 'game-card'; // Reuse your game-card style
+                // Add a data-cover-url attribute to easily find the selected image later
                 gameCard.innerHTML = `
-                    <img src="${game.cover_url || '{{ url_for("static", filename="placeholder.png") }}'}" alt="Cover" style="cursor:pointer;" onclick="selectIgdbCover('${game.cover_url}')">
+                    <img src="${game.cover_url || '{{ url_for("static", filename="placeholder.png") }}'}" 
+                         alt="Cover" 
+                         style="cursor:pointer;" 
+                         onclick="selectIgdbCover(this, '${game.cover_url}')">
                     <h3>${game.name}</h3>
                     <p>${game.platforms} (${game.release_date})</p>
                 `;
@@ -100,10 +104,17 @@
         }
     }
 
-    function selectIgdbCover(coverUrl) {
+    // Modified to accept the clicked image element and the cover URL
+    function selectIgdbCover(clickedImage, coverUrl) {
         document.getElementById('igdb_cover_url').value = coverUrl;
-        alert('IGDB cover selected! It will be downloaded when you submit the form.');
-        // You could add a visual indicator here, e.g., highlight the selected cover.
+
+        // 1. Remove highlight from all other images
+        document.querySelectorAll('#igdb_results .game-card img').forEach(img => {
+            img.classList.remove('selected-igdb-cover');
+        });
+
+        // 2. Add highlight to the clicked image
+        clickedImage.classList.add('selected-igdb-cover');
     }
 </script>
 {% endblock %}

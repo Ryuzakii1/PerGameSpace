@@ -58,7 +58,6 @@
         }
 
         try {
-            // Updated URL to point to the blueprint
             const response = await fetch("{{ url_for('igdb.igdb_search') }}?query=" + encodeURIComponent(query));
             const games = await response.json();
 
@@ -71,8 +70,12 @@
             games.forEach(game => {
                 const gameCard = document.createElement('div');
                 gameCard.className = 'game-card'; // Reuse your game-card style
+                // Add a data-cover-url attribute to easily find the selected image later
                 gameCard.innerHTML = `
-                    <img src="${game.cover_url || '{{ url_for("static", filename="placeholder.png") }}'}" alt="Cover" style="cursor:pointer;" onclick="selectIgdbCover('${game.cover_url}')">
+                    <img src="${game.cover_url || '{{ url_for("static", filename="placeholder.png") }}'}" 
+                         alt="Cover" 
+                         style="cursor:pointer;" 
+                         onclick="selectIgdbCover(this, '${game.cover_url}')">
                     <h3>${game.name}</h3>
                     <p>${game.platforms} (${game.release_date})</p>
                 `;
@@ -89,10 +92,17 @@
         }
     }
 
-    function selectIgdbCover(coverUrl) {
+    // Modified to accept the clicked image element and the cover URL
+    function selectIgdbCover(clickedImage, coverUrl) {
         document.getElementById('igdb_cover_url').value = coverUrl;
-        alert('IGDB cover selected! It will be downloaded when you submit the form.');
-        // You could add a visual indicator here, e.g., highlight the selected cover.
+
+        // 1. Remove highlight from all other images
+        document.querySelectorAll('#igdb_results .game-card img').forEach(img => {
+            img.classList.remove('selected-igdb-cover');
+        });
+
+        // 2. Add highlight to the clicked image
+        clickedImage.classList.add('selected-igdb-cover');
     }
 </script>
 {% endblock %}

@@ -5,9 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Game Library</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/toast.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/' + get_setting('theme', 'modern') + '.css') }}">
 </head>
 <body>
+    <div id="toast-container" class="toast-container">
+        </div>
+
+    <div id="flashed-messages-data" style="display:none;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <span data-category="{{ category }}" data-message="{{ message }}"></span>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
     <header>
         <div class="container">
             <h1><a href="{{ url_for('library.index') }}">My Game Library</a></h1>
@@ -16,22 +30,14 @@
                     <li><a href="{{ url_for('library.library') }}">Library</a></li>
                     <li><a href="{{ url_for('library.upload_game') }}">Upload Game</a></li>
                     <li><a href="{{ url_for('settings.settings') }}">Settings</a></li>
-                    </ul>
+                </ul>
             </nav>
         </div>
     </header>
 
     <main>
         <div class="container">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <ul class="flashes">
-                        {% for category, message in messages %}
-                            <li class="{{ category }}">{{ message }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
-            {% endwith %}
+            {# Removed the old Flask flash message display block here #}
             {% block content %}{% endblock %}
         </div>
     </main>
@@ -41,5 +47,8 @@
             <p>&copy; {{ datetime.now().year }} My Game Library. All rights reserved.</p>
         </div>
     </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
 </body>
 </html>

@@ -188,7 +188,7 @@ def scan_folder_gui(folder_path, systems_map, output_widget, progress_label, mas
                 'filename': filename,
                 'title': game_title,
                 'system': final_system,
-                'file_path': full_local_path, # Path is still to the ZIP file
+                'filepath': full_local_path, # Path is still to the ZIP file
                 'description': '', 
                 'cover_url': ''    
             }

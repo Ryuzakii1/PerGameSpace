@@ -170,7 +170,8 @@ def create_app():
         conn = sqlite3.connect(current_app.config['DATABASE'])
         conn.row_factory = sqlite3.Row
         try:
-            conn.execute(
+            cursor = conn.cursor()
+            cursor.execute(
                 "INSERT INTO games (title, system, filepath, cover_url, last_played, play_count) VALUES (?, ?, ?, ?, ?, ?)",
                 (title, system, filepath, cover_url, None, 0) # last_played and play_count initialized
             )

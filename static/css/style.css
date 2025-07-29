@@ -203,7 +203,7 @@ footer {
 /* Game Grid and Cards (Library and IGDB search results) */
 .game-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* Responsive grid */
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Responsive grid */
     gap: 20px;
 }
 
@@ -212,6 +212,7 @@ footer {
     border-radius: 8px;
     overflow: hidden;
     text-align: center;
+    width: 200px; /* Fixed width for consistency */
     padding-bottom: 10px;
     
     /* --- ADD THESE FOR HOVER EFFECT --- */
@@ -236,8 +237,8 @@ footer {
 
 .game-card img {
     max-width: 100%;
-    height: 180px; /* Fixed height for covers */
-    object-fit: contain; /* Ensure cover fits while maintaining aspect ratio */
+    height: 250px; /* Fixed height for covers */
+    object-fit: cover; /* Ensure cover fits while maintaining aspect ratio */
     display: block;
     margin: 0 auto 10px auto;
 }
@@ -249,7 +250,7 @@ footer {
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
-   /* -webkit-line-clamp: 2; /* Limit to 2 lines */
+    /* -webkit-line-clamp: 2; /* Limit to 2 lines */
     -webkit-box-orient: vertical;
 }
 
@@ -269,6 +270,20 @@ footer {
     padding: 0 5px;
 }
 
+/* Styling for the selected IGDB cover image */
+.selected-igdb-cover {
+    border: 3px solid #007bff; /* A nice blue border */
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.6); /* A subtle glow */
+    transition: all 0.2s ease-in-out; /* Smooth transition for visual feedback */
+    transform: scale(1.02); /* Slightly enlarge the selected image */
+}
+
+/* Optional: Improve hover effect for unselected images */
+.game-card img:not(.selected-igdb-cover):hover {
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+    transform: scale(1.01);
+}
+
 /* Game Detail Page */
 .game-detail-card {
     display: flex;
@@ -282,7 +297,7 @@ footer {
 .game-detail-cover {
     flex: 1; /* Allows it to take available space */
     min-width: 200px; /* Minimum width before wrapping */
-    max-width: 300px; /* Maximum width for cover */
+    max-width: 400px; /* Maximum width for cover */
     text-align: center;
 }
 
@@ -315,7 +330,7 @@ footer {
 
 /* Current Cover Preview on Edit Page */
 img.current-cover-preview {
-    max-width: 150px;
+    max-width: 200px;
     height: auto;
     display: block;
     margin-top: 10px;
@@ -408,7 +423,7 @@ img.current-cover-preview {
     }
 }
 /* ========================================================= */
-/* HOMEPAGE SPECIFIC STYLES (for new index.html layout)    */
+/* HOMEPAGE SPECIFIC STYLES (for new index.html layout)    */
 /* ========================================================= */
 
 .homepage-hero {

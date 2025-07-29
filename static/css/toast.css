@@ -1,0 +1,92 @@
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 20px; /* Position from the top of the viewport */
+    right: 20px; /* Position from the right of the viewport */
+    z-index: 1050; /* Ensure it's on top of other content */
+    display: flex;
+    flex-direction: column; /* Stacks toasts vertically */
+    gap: 10px; /* Space between toasts */
+    max-width: 350px; /* Maximum width for toasts */
+    pointer-events: none; /* Allows clicks to pass through the container, not individual toasts */
+}
+
+.toast {
+    background-color: var(--card-bg-color, #2d3748); /* Use your theme's card background, or fallback */
+    color: var(--text-color, #e2e8f0); /* Use your theme's text color, or fallback */
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); /* Subtle shadow */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: auto; /* Re-enable pointer events for the toast itself */
+    opacity: 0; /* Hidden by default */
+    transform: translateY(-20px); /* Start slightly above for slide-in effect */
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out; /* Smooth entrance */
+    min-width: 250px;
+    position: relative; /* For the progress bar */
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast.fade-out {
+    opacity: 0;
+    transform: translateY(-20px); /* Slide out as it fades */
+    transition: opacity 0.5s ease-in, transform 0.5s ease-in; /* Smooth exit */
+}
+
+.toast-message {
+    flex-grow: 1; /* Allows message to take available space */
+    margin-right: 15px;
+    font-size: 0.95em;
+}
+
+.toast-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-color-light, #a0aec0); /* Lighter text for the 'x' */
+    font-size: 1.3em;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 5px;
+}
+.toast-close-btn:hover {
+    color: var(--primary-color, #4299e1); /* Highlight on hover */
+}
+
+/* Specific Toast Types (for color coding the border-left) */
+.toast.info {
+    border-left: 5px solid #2196F3; /* Blue */
+}
+.toast.success {
+    border-left: 5px solid #4CAF50; /* Green */
+}
+.toast.warning {
+    border-left: 5px solid #FFC107; /* Orange */
+    color: #333; /* Darker text for better contrast on yellow */
+}
+.toast.error {
+    border-left: 5px solid #F44336; /* Red */
+}
+
+/* Optional: Progress bar for auto-disappearing toasts */
+.toast.has-progress-bar::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background-color: rgba(255, 255, 255, 0.3); /* Semi-transparent white */
+    transform-origin: left;
+    animation: toast-progress var(--toast-duration) linear forwards; /* Animation controlled by JS var */
+}
+
+@keyframes toast-progress {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}

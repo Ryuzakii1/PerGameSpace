@@ -5,12 +5,25 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, request, redirect, url_for, flash, current_app
 
-from utils import get_setting # <--- NEW IMPORT
+from utils import get_setting
 
 igdb_bp = Blueprint('igdb', __name__)
 
-# IGDB Token Management Functions - These are internal to the IGDB blueprint's logic
+# --- Helper function to construct IGDB image URLs ---
+def construct_igdb_image_url(image_id, size="cover_big"):
+    """
+    Constructs a full HTTPS URL for an IGDB image.
+    Valid sizes (common examples):
+    "thumb", "cover_small", "cover_big", "cover_big_2x",
+    "screenshot_med", "screenshot_big", "720p", "1080p", "original"
+    """
+    if image_id:
+        return f"https://images.igdb.com/igdb/image/upload/t_{size}/{image_id}.jpg"
+    return None # Return None if image_id is not provided
+
+# IGDB Token Management Functions (These remain the same)
 def _get_igdb_access_token():
+    # ... (your existing code for token management) ...
     # Prioritize settings from settings.json, fall back to config.py if not found
     client_id = get_setting('igdb_client_id', current_app.config['IGDB_CLIENT_ID'])
     client_secret = get_setting('igdb_client_secret', current_app.config['IGDB_CLIENT_SECRET'])
@@ -41,21 +54,21 @@ def _get_igdb_access_token():
         }
         response = requests.post(url, data=payload)
         response.raise_for_status()
-        
+
         new_token_data = response.json()
         access_token = new_token_data['access_token']
         expires_in = new_token_data['expires_in']
-        
+
         expires_at = datetime.now() + timedelta(seconds=expires_in - 300) # 5 min buffer
-        
+
         token_data = {
             'access_token': access_token,
             'expires_at': expires_at.timestamp()
         }
-        
+
         with open(token_file, 'w') as f:
             json.dump(token_data, f, indent=4)
-        
+
         return access_token
     except requests.exceptions.RequestException as e:
         flash(f"Error getting IGDB access token. Check credentials and internet connection: {e}", 'error')
@@ -76,7 +89,7 @@ def _igdb_api_request(endpoint, query_body):
         'Accept': 'application/json'
     }
     url = f"https://api.igdb.com/v4/{endpoint}"
-    
+
     try:
         response = requests.post(url, headers=headers, data=query_body)
         response.raise_for_status()
@@ -86,24 +99,28 @@ def _igdb_api_request(endpoint, query_body):
         print(f"Error making IGDB API request to {endpoint}: {e}")
         return None
 
-# IGDB Routes (remain the same)
+# IGDB Routes
 @igdb_bp.route('/igdb_search', methods=['GET'])
 def igdb_search():
-    # ... (rest of function remains the same) ...
     query = request.args.get('query', '').strip()
     if not query:
         return json.dumps([])
 
-    query_body = f'search "{query}"; fields name, cover.url, platforms.name, first_release_date; limit 10;'
+    # IMPORTANT: Request 'cover.image_id' instead of just 'cover.url'
+    # This allows us to construct the URL with a specific size later.
+    query_body = f'search "{query}"; fields name, cover.image_id, platforms.name, first_release_date; limit 10;'
     results = _igdb_api_request('games', query_body)
 
     formatted_results = []
     if results:
         for game in results:
             cover_url = None
-            if 'cover' in game and 'url' in game['cover']:
-                cover_url = f"https:{game['cover']['url']}"
-            
+            # Check for 'cover' and 'image_id'
+            if 'cover' in game and 'image_id' in game['cover']:
+                # Use our new helper function to get a 'cover_big' sized image
+                # You can change "cover_big" to "cover_big_2x" for even larger results
+                cover_url = construct_igdb_image_url(game['cover']['image_id'], size="cover_big")
+
             platforms = "Unknown Platform"
             if 'platforms' in game:
                 platform_names = [p['name'] for p in game['platforms'] if 'name' in p]
@@ -113,7 +130,7 @@ def igdb_search():
             formatted_results.append({
                 'id': game['id'],
                 'name': game['name'],
-                'cover_url': cover_url,
+                'cover_url': cover_url, # This will now be the larger URL
                 'platforms': platforms,
                 'release_date': datetime.fromtimestamp(game['first_release_date']).year if 'first_release_date' in game else 'N/A'
             })
@@ -121,9 +138,12 @@ def igdb_search():
 
 @igdb_bp.route('/igdb_cover/<int:igdb_game_id>')
 def igdb_cover(igdb_game_id):
-    query_body = f'fields url; where game = {igdb_game_id}; limit 1;'
+    # This endpoint is specifically for fetching a single cover.
+    # We can also make this return a larger size.
+    query_body = f'fields image_id; where game = {igdb_game_id}; limit 1;' # Request image_id
     results = _igdb_api_request('covers', query_body)
-    
-    if results and results[0] and 'url' in results[0]:
-        return redirect(f"https:{results[0]['url']}")
+
+    if results and results[0] and 'image_id' in results[0]:
+        # Return a cover_big_2x size for single cover fetches for maximum detail
+        return redirect(construct_igdb_image_url(results[0]['image_id'], size="cover_big_2x"))
     return redirect(url_for('static', filename='placeholder.png'))

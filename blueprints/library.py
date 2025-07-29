@@ -254,7 +254,7 @@ def upload_game():
                 with open(cover_path, 'wb') as out_file:
                     shutil.copyfileobj(response.raw, out_file)
                 cover_url = url_for('static', filename=f'covers/{unique_cover_filename}')
-                flash("IGDB cover downloaded and applied.", "info")
+                #flash("IGDB cover downloaded and applied.", "info")
             except requests.exceptions.RequestException as req_e:
                 flash(f"Could not download IGDB cover (Network Error): {req_e}", "warning")
                 cover_url = None
@@ -371,7 +371,7 @@ def edit_game(game_id):
                 with open(cover_path, 'wb') as out_file:
                     shutil.copyfileobj(response.raw, out_file)
                 updated_cover_url = url_for('static', filename=f'covers/{unique_cover_filename}')
-                flash("IGDB cover downloaded and applied.", "info")
+                #flash("IGDB cover downloaded and applied.", "info")
             except requests.exceptions.RequestException as req_e:
                 flash(f"Could not download IGDB cover (Network Error): {req_e}", "warning")
                 # IMPORTANT: If download fails, revert to the original cover URL
@@ -402,7 +402,7 @@ def edit_game(game_id):
         finally:
             conn.close()
 
-    return render_template('upload_game.html', systems=systems)
+    return render_template('edit_game.html', game=game, systems=systems)
 
 
 @library_bp.route('/delete/<int:game_id>')
