@@ -1,38 +1,51 @@
-{# templates/game_detail.html #}
 {% extends "base.html" %}
 
 {% block content %}
-<div class="game-detail-card">
-    <div class="game-detail-cover">
-        <img src="{{ game.cover_url or url_for('static', filename='placeholder.png') }}" alt="{{ game.title }} Cover">
+<div class="game-detail-container">
+    <div class="game-detail-header">
+        <h1>{{ game.title }}</h1>
+        {# The game-actions div is moved below #}
     </div>
-    <div class="game-detail-info">
-        <h2>{{ game.title }}</h2>
-        <p><strong>System:</strong> {{ game.system }}</p>
-        <p><strong>File:</strong> {{ game.filepath.split('/')[-1].split('\\')[-1] }}</p> {# Display just the filename #}
-        <p><strong>Last Played:</strong> 
-            {% if game.last_played %}
-                {{ datetime.strptime(game.last_played, "%Y-%m-%d %H:%M:%S").strftime("%Y-%m-%d %I:%M %p") }}
-            {% else %}
-                Never
-            {% endif %}
-        </p>
-        <p><strong>Play Count:</strong> {{ game.play_count }}</p>
-        
-        <div class="game-actions">
-            {# Original Play button for local emulators #}
-            <a href="{{ url_for('library.launch_game', game_id=game.id) }}" class="button primary">Play Locally</a>
-            
-            {# NEW: Button to launch web emulator for supported systems #}
-            {% set system_lower = game.system.lower() %}
-            {# Added 'gameboy color' (one word) to the condition #}
-            {% if system_lower == 'super nintendo' or system_lower == 'snes' or system_lower == 'game boy color' or system_lower == 'gameboy color' or system_lower == 'game boy' or system_lower == 'gbc' or system_lower == 'gb' %} 
-                <a href="{{ url_for('library.play_web_emulator', game_id=game.id) }}" class="button primary">Launch Web Emulator</a>
-            {% endif %}
 
-            <a href="{{ url_for('library.edit_game', game_id=game.id) }}" class="button secondary small">Edit</a>
-            <a href="{{ url_for('library.delete_game', game_id=game.id) }}" class="button danger" onclick="return confirm('Are you sure you want to delete {{ game.title }}?');">Delete Game</a>
-            <a href="{{ url_for('library.library', system_name=game.system) }}" class="button secondary">Back to {{ game.system }} Library</a>
+    <div class="game-info-grid">
+        <div class="game-cover">
+            <img src="{{ game.cover_url or url_for('static', filename='placeholder.png') }}" alt="Game Cover">
+        </div>
+        <div class="game-details">
+            <p><strong>System:</strong> {{ game.system }}</p>
+            {# Removed File Path: <p><strong>File Path:</strong> {{ game.filepath }}</p> #}
+            {% if game.original_filename %}
+                <p><strong>Original File Name:</strong> {{ game.original_filename }}</p>
+            {% endif %}
+            <p><strong>Last Played:</strong> {{ game.last_played or 'Never' }}</p>
+            <p><strong>Play Count:</strong> {{ game.play_count }}</p>
+
+            <div class="game-play-options">
+                {# Existing Play/Download Buttons #}
+                {% if web_emulator_url %}
+                    <a href="{{ web_emulator_url }}" class="button primary">Play in Web Emulator</a>
+                {% else %}
+                    <button class="button primary" disabled title="Web emulation not available for this game/system">Play in Web Emulator</button>
+                {% endif %}
+
+                {% if desktop_emulator_url %}
+                    <a href="{{ desktop_emulator_url }}" class="button primary">Launch on Desktop</a>
+                {% else %}
+                    <button class="button primary" disabled title="Desktop emulator not configured for this system">Launch on Desktop</button>
+                {% endif %}
+
+                {% if download_url %}
+                    <a href="{{ download_url }}" class="button secondary">Download Game</a>
+                {% else %}
+                    <button class="button secondary" disabled title="Download not available for this game">Download Game</button>
+                {% endif %}
+
+                {# Moved Edit and Delete Buttons here #}
+                <div class="game-actions" style="margin-top: 20px;"> {# Added margin for spacing #}
+                    <a href="{{ url_for('library.edit_game', game_id=game.id) }}" class="button secondary">Edit Game</a>
+                    <a href="{{ url_for('library.delete_game', game_id=game.id) }}" class="button danger" onclick="return confirm('Are you sure you want to delete {{ game.title }}? This cannot be undone.');">Delete Game</a>
+                </div>
+            </div>
         </div>
     </div>
 </div>

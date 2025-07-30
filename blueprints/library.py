@@ -1,48 +1,84 @@
 import os
 import sqlite3
-import subprocess
-from datetime import datetime
-from uuid import uuid4
 import shutil
 import json
 import requests
 from urllib.parse import urlparse
+import zipfile
+from datetime import datetime
+from uuid import uuid4
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 
 from utils import get_setting
+from blueprints.emulation import _get_rom_paths_for_serving
 
-# Create a Blueprint instance
 library_bp = Blueprint('library', __name__)
 
-# Helper function to get DB connection
 def get_db_connection():
     conn = sqlite3.connect(current_app.config['DATABASE'])
     conn.row_factory = sqlite3.Row
     return conn
 
-# Helper function to get system image URL
-# This function determines the path to the system silhouette image
 def get_system_image_url(system_name):
-    # Convert system name to a URL-friendly filename (lowercase, spaces to underscores, remove special chars)
-    # Example: "Nintendo Switch" -> "nintendo_switch.png"
-    # "PlayStation 5" -> "playstation_5.png"
-    # "PC" -> "pc.png"
     filename = system_name.lower().replace(' ', '_').replace('-', '_').replace('.', '').replace('&', 'and') + '.png'
     image_path = os.path.join(current_app.root_path, 'static', 'img', 'systems', filename)
 
-    # Check if the specific image exists
     if os.path.exists(image_path):
         return url_for('static', filename=f'img/systems/{filename}')
     else:
-        # Fallback to a generic placeholder system image
         return url_for('static', filename='img/systems/placeholder_system.png')
 
+def save_and_organize_game_file(uploaded_file, system_name, game_title):
+    if not uploaded_file or not uploaded_file.filename:
+        return None, None
+
+    original_filename = uploaded_file.filename
+    safe_system_name = "".join(c for c in system_name if c.isalnum() or c in (' ', '_')).strip().replace(' ', '_')
+    safe_game_title = "".join(c for c in game_title if c.isalnum() or c in (' ', '_', '-')).strip()
+    system_roms_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], safe_system_name)
+    os.makedirs(system_roms_dir, exist_ok=True)
+    file_extension = os.path.splitext(original_filename)[1].lower()
+    temp_filepath = os.path.join(current_app.config['TEMP_UPLOAD_FOLDER'], f"{uuid4()}_{original_filename}")
+    os.makedirs(current_app.config['TEMP_UPLOAD_FOLDER'], exist_ok=True)
+    uploaded_file.save(temp_filepath)
+    current_app.logger.info(f"Saved temporary file to: {temp_filepath}")
+    final_game_path = None
+    try:
+        if file_extension == '.zip':
+            unzip_target_dir_name = f"{safe_game_title}_{uuid4().hex[:8]}"
+            unzip_target_path = os.path.join(system_roms_dir, unzip_target_dir_name)
+            os.makedirs(unzip_target_path, exist_ok=True)
+            current_app.logger.info(f"Created unzip target directory: {unzip_target_path}")
+            with zipfile.ZipFile(temp_filepath, 'r') as zip_ref:
+                zip_ref.extractall(unzip_target_path)
+            current_app.logger.info(f"Extracted '{original_filename}' to '{unzip_target_path}'")
+            final_game_path = unzip_target_path
+            flash(f"'{original_filename}' unzipped and organized into '{safe_system_name}' folder.", 'info')
+        else:
+            unique_filename_for_storage = f"{uuid4()}{file_extension}"
+            destination_filepath = os.path.join(system_roms_dir, unique_filename_for_storage)
+            shutil.move(temp_filepath, destination_filepath)
+            final_game_path = destination_filepath
+            current_app.logger.info(f"Moved '{original_filename}' to '{destination_filepath}'")
+            flash(f"'{original_filename}' organized into '{safe_system_name}' folder.", 'info')
+    except zipfile.BadZipFile:
+        flash(f"Error: '{original_filename}' is not a valid zip file.", 'error')
+        current_app.logger.error(f"BadZipFile error for: {temp_filepath}")
+        final_game_path = None
+    except Exception as e:
+        flash(f"Error processing game file: {e}", 'error')
+        current_app.logger.error(f"General error processing {temp_filepath}: {e}", exc_info=True)
+        final_game_path = None
+    finally:
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
+            current_app.logger.info(f"Cleaned up temporary file: {temp_filepath}")
+    return final_game_path, original_filename
 
 @library_bp.route('/')
 def index():
     conn = get_db_connection()
-    # Get unique systems and their game counts
     systems_data = conn.execute('''
         SELECT system, COUNT(id) as game_count
         FROM games
@@ -50,79 +86,55 @@ def index():
         ORDER BY system
     ''').fetchall()
     conn.close()
-
-    # Prepare data for template, including image URLs and library filter URLs
     systems_for_template = []
     for system in systems_data:
         systems_for_template.append({
             'name': system['system'],
             'count': system['game_count'],
             'image_url': get_system_image_url(system['system']),
-            # Link to filter the main library by this system
             'url': url_for('library.library', system=system['system'])
         })
-
-    # The homepage no longer needs a total games counter, as the focus is on systems
     return render_template('index.html', systems=systems_for_template)
 
-
 @library_bp.route('/library')
-@library_bp.route('/library/<string:system_name>') # Keep this for direct system links if needed
-def library(system_name=None): # system_name from URL path
+@library_bp.route('/library/<string:system_name>')
+def library(system_name=None):
     conn = get_db_connection()
-    
-    # Get filters/sorts from query parameters (for the new library page functionality)
-    system_filter_param = request.args.get('system') # system from query param (e.g., ?system=NES)
+    system_filter_param = request.args.get('system')
     search_query = request.args.get('search')
-    sort_by = request.args.get('sort_by', 'title') # Default sort by title
-    sort_order = request.args.get('sort_order', 'ASC') # Default sort ascending
-
-    # Determine the effective system filter: query param takes precedence over path param
+    sort_by = request.args.get('sort_by', 'title')
+    sort_order = request.args.get('sort_order', 'ASC')
     effective_system_filter = system_filter_param if system_filter_param else system_name
-
     query = "SELECT * FROM games"
     params = []
     where_clauses = []
-
     current_display_title = "My Game Library"
-
     if effective_system_filter:
         where_clauses.append("system = ?")
         params.append(effective_system_filter)
         current_display_title = f"Games on {effective_system_filter}"
-
     if search_query:
         where_clauses.append("(title LIKE ? OR system LIKE ?)")
         params.append(f"%{search_query}%")
         params.append(f"%{search_query}%")
         current_display_title = f"Search results for '{search_query}'"
-
     if where_clauses:
         query += " WHERE " + " AND ".join(where_clauses)
-
-    # Basic input validation for sort_by to prevent SQL injection
-    # Ensure these match your database column names
-    valid_sort_columns = ['title', 'system', 'last_played', 'play_count'] # Added last_played, play_count
+    valid_sort_columns = ['title', 'system', 'last_played', 'play_count']
     if sort_by not in valid_sort_columns:
-        sort_by = 'title' # Default if invalid
-
-    # Basic input validation for sort_order
+        sort_by = 'title'
     if sort_order.upper() not in ['ASC', 'DESC']:
-        sort_order = 'ASC' # Default if invalid
-
+        sort_order = 'ASC'
     query += f" ORDER BY {sort_by} {sort_order}"
-
     games = conn.execute(query, params).fetchall()
     conn.close()
-
     return render_template('library.html',
                            games=games,
                            current_display_title=current_display_title,
-                           current_system_filter=effective_system_filter, # Pass the active filter to template
-                           current_search_query=search_query, # Pass search query to template
-                           current_sort_by=sort_by, # Pass sort preference to template
-                           current_sort_order=sort_order) # Pass sort order to template
-
+                           current_system_filter=effective_system_filter,
+                           current_search_query=search_query,
+                           current_sort_by=sort_by,
+                           current_sort_order=sort_order)
 
 @library_bp.route('/game/<int:game_id>')
 def game_detail(game_id):
@@ -132,63 +144,40 @@ def game_detail(game_id):
     if game is None:
         flash('Game not found.', 'error')
         return redirect(url_for('library.library'))
-    return render_template('game_detail.html', game=game)
 
+    game_dict = dict(game)
+    game_json = json.dumps(game_dict)
 
-# --- Web Emulator Route ---
-@library_bp.route('/play_web/<int:game_id>')
-def play_web_emulator(game_id):
-    conn = get_db_connection()
-    game_row = conn.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
-    conn.close() # Close connection after fetching game data
+    web_emulator_url = None
+    desktop_emulator_url = None
+    download_url = None
 
-    if game_row:
-        # Convert sqlite3.Row object to a regular dictionary for JSON serialization
-        game = dict(game_row) 
-        # Convert backslashes to forward slashes for URL compatibility and JSON safety
-        if 'filepath' in game and game['filepath'] is not None:
-            game['filepath'] = game['filepath'].replace('\\', '/')
+    if game['original_filename']:
+        # --- FIX: Changed endpoint name from 'emulation.play_web' to 'emulation.play_web_emulator' ---
+        # This now correctly matches the function name 'play_web_emulator' in the emulation.py blueprint.
+        web_emulator_url = url_for('emulation.play_web_emulator',
+                                   game_id=game['id'])
 
-        rom_filename = os.path.basename(game['filepath'])
-        rom_url = url_for('roms_file', filename=rom_filename, _external=True)
-        
-        system_name_lower = game['system'].lower()
-        
-        # Determine core and aspect ratio based on system, including 'gameboy color' (one word)
-        emulator_core = ''
-        emulator_aspect_ratio = ''
+        desktop_emulator_url = url_for('emulation.launch_game', 
+                                       game_id=game['id'])
 
-        if system_name_lower == 'super nintendo' or system_name_lower == 'snes':
-            emulator_core = 'snes9x'
-            emulator_aspect_ratio = '4/3' # Standard SNES aspect ratio
-        elif system_name_lower in ['game boy color', 'gameboy color', 'game boy', 'gbc', 'gb']:
-            emulator_core = 'gambatte' # Nostalgist.js core for Game Boy / Game Boy Color
-            emulator_aspect_ratio = '10/9' # GBC aspect ratio (160 / 144)
-        # Add more elif conditions here for other systems as needed
-        # elif system_name_lower == 'nes':
-        #     emulator_core = 'fceumm'
-        #     emulator_aspect_ratio = '4/3'
+        # This correctly points to the download route in run.py
+        download_url = url_for('download_rom_file', 
+                               game_id=game['id'], 
+                               original_filename=game['original_filename'])
 
-        if not emulator_core:
-            flash(f"Web emulation is not configured for system: {game['system']}.", 'error')
-            return redirect(url_for('library.game_detail', game_id=game_id))
-
-        return render_template('web_emulator.html', 
-                               game=game, 
-                               rom_url=rom_url,
-                               emulator_core=emulator_core, # Pass the determined core
-                               emulator_aspect_ratio=emulator_aspect_ratio) # Pass the determined aspect ratio
-    else:
-        flash('Game not found.', 'error')
-        return redirect(url_for('library.library'))
-
+    return render_template('game_detail.html', 
+                           game=game,
+                           game_json=game_json,
+                           web_emulator_url=web_emulator_url,
+                           desktop_emulator_url=desktop_emulator_url,
+                           download_url=download_url)
 
 @library_bp.route('/upload', methods=['GET', 'POST'])
 def upload_game():
     conn = get_db_connection()
     systems = conn.execute('SELECT name FROM systems ORDER BY name').fetchall()
     conn.close()
-
     if request.method == 'POST':
         title = request.form['title']
         system = request.form['system']
@@ -196,13 +185,11 @@ def upload_game():
         game_file = request.files.get('game_file')
         cover_file = request.files.get('cover_file')
         igdb_cover_url_input = request.form.get('igdb_cover_url')
-
         if not title or not (system or new_system_name) or not game_file:
             flash('Title, System, and Game File are required.', 'error')
             return redirect(request.url)
-        
+        final_system = new_system_name.strip() if new_system_name else system
         if new_system_name:
-            final_system = new_system_name.strip()
             conn = get_db_connection()
             try:
                 conn.execute('INSERT INTO systems (name) VALUES (?)', (final_system,))
@@ -212,144 +199,21 @@ def upload_game():
                 flash(f"System '{final_system}' already exists, using existing system.", 'info')
             finally:
                 conn.close()
-        else:
-            final_system = system
-
-        filename_base, file_extension = os.path.splitext(game_file.filename)
-        unique_filename = f"{uuid4()}{file_extension}"
-        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
-        game_file.save(filepath)
-        
+        filepath, original_filename = save_and_organize_game_file(game_file, final_system, title)
+        if filepath is None:
+            return redirect(request.url)
         cover_url = None
         if cover_file and cover_file.filename:
-            cover_filename_base, cover_extension = os.path.splitext(cover_file.filename)
+            _, cover_extension = os.path.splitext(cover_file.filename)
             unique_cover_filename = f"{uuid4()}{cover_extension}"
             cover_path = os.path.join(current_app.config['COVERS_FOLDER'], unique_cover_filename)
+            os.makedirs(current_app.config['COVERS_FOLDER'], exist_ok=True)
             cover_file.save(cover_path)
             cover_url = url_for('static', filename=f'covers/{unique_cover_filename}')
         elif igdb_cover_url_input:
             try:
                 response = requests.get(igdb_cover_url_input, stream=True)
                 response.raise_for_status()
-
-                # Determine file extension more robustly
-                ext = '.jpg' # Default to JPG if not found
-                parsed_url = urlparse(igdb_cover_url_input)
-                path_without_query = parsed_url.path
-                if '.' in path_without_query:
-                    ext = os.path.splitext(path_without_query)[-1]
-                else:
-                    content_type = response.headers.get('Content-Type')
-                    if content_type and 'image/' in content_type:
-                        ext = '.' + content_type.split('/')[-1].split(';')[0] # Remove charset etc.
-                    if not ext or len(ext) > 5: # Fallback if content-type is also unhelpful
-                        ext = '.jpg'
-                
-                unique_cover_filename = f"{uuid4()}{ext}"
-                cover_path = os.path.join(current_app.config['COVERS_FOLDER'], unique_cover_filename)
-
-                # Ensure the covers folder exists before saving
-                os.makedirs(current_app.config['COVERS_FOLDER'], exist_ok=True)
-
-                with open(cover_path, 'wb') as out_file:
-                    shutil.copyfileobj(response.raw, out_file)
-                cover_url = url_for('static', filename=f'covers/{unique_cover_filename}')
-                #flash("IGDB cover downloaded and applied.", "info")
-            except requests.exceptions.RequestException as req_e:
-                flash(f"Could not download IGDB cover (Network Error): {req_e}", "warning")
-                cover_url = None
-            except Exception as e:
-                flash(f"Could not download IGDB cover (General Error): {e}", "warning")
-                cover_url = None
-
-        conn = get_db_connection()
-        try:
-            conn.execute('INSERT INTO games (title, system, filepath, cover_url) VALUES (?, ?, ?, ?)',
-                         (title, final_system, filepath, cover_url))
-            conn.commit()
-            flash('Game uploaded successfully!', 'success')
-            return redirect(url_for('library.library', system=final_system)) # Use 'system' query param
-        except Exception as e:
-            flash(f'An error occurred: {e}', 'error')
-            if os.path.exists(filepath):
-                os.remove(filepath)
-            if cover_url and os.path.exists(os.path.join(current_app.root_path, cover_url.replace('/static/', 'static/'))):
-                os.remove(os.path.join(current_app.root_path, cover_url.replace('/static/', 'static/')))
-            return redirect(request.url)
-        finally:
-            conn.close()
-    
-    return render_template('upload_game.html', systems=systems)
-
-
-@library_bp.route('/edit/<int:game_id>', methods=['GET', 'POST'])
-def edit_game(game_id):
-    conn = get_db_connection()
-    game = conn.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
-    systems = conn.execute('SELECT name FROM systems ORDER BY name').fetchall()
-    conn.close()
-
-    if game is None:
-        flash('Game not found.', 'error')
-        return redirect(url_for('library.library'))
-
-    if request.method == 'POST':
-        new_title = request.form['title']
-        new_system = request.form['system']
-        new_system_name = request.form.get('new_system_name')
-        new_game_file = request.files.get('game_file')
-        new_cover_file = request.files.get('cover_file')
-        igdb_cover_url_input = request.form.get('igdb_cover_url')
-        
-        final_system = new_system
-        if new_system_name:
-            final_system = new_system_name.strip()
-            conn = get_db_connection()
-            try:
-                conn.execute('INSERT INTO systems (name) VALUES (?)', (final_system,))
-                conn.commit()
-                flash(f"New system '{final_system}' added.", 'success')
-            except sqlite3.IntegrityError:
-                pass
-            finally:
-                conn.close()
-
-        updated_filepath = game['filepath']
-        updated_cover_url = game['cover_url'] # Preserve current URL by default
-
-        # Handle new game file upload
-        if new_game_file and new_game_file.filename:
-            if os.path.exists(game['filepath']):
-                os.remove(game['filepath']) # Delete old file
-            
-            filename_base, file_extension = os.path.splitext(new_game_file.filename)
-            unique_filename = f"{uuid4()}{file_extension}"
-            updated_filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
-            new_game_file.save(updated_filepath)
-
-        # Handle new cover file upload (custom or IGDB)
-        if new_cover_file and new_cover_file.filename:
-            if game['cover_url'] and 'static/covers/' in game['cover_url']:
-                old_cover_path = os.path.join(current_app.root_path, game['cover_url'].replace('/static/', 'static/'))
-                if os.path.exists(old_cover_path):
-                    os.remove(old_cover_path) # Delete old cover
-            
-            cover_filename_base, cover_extension = os.path.splitext(new_cover_file.filename)
-            unique_cover_filename = f"{uuid4()}{cover_extension}"
-            cover_path = os.path.join(current_app.config['COVERS_FOLDER'], unique_cover_filename)
-            new_cover_file.save(cover_path)
-            updated_cover_url = url_for('static', filename=f'covers/{unique_cover_filename}')
-        elif igdb_cover_url_input:
-            # If a new IGDB cover is selected, delete the old one first if it's local
-            if game['cover_url'] and 'static/covers/' in game['cover_url']:
-                old_cover_path = os.path.join(current_app.root_path, game['cover_url'].replace('/static/', 'static/'))
-                if os.path.exists(old_cover_path):
-                    os.remove(old_cover_path)
-            try:
-                response = requests.get(igdb_cover_url_input, stream=True)
-                response.raise_for_status()
-                
-                # Determine file extension more robustly
                 ext = '.jpg'
                 parsed_url = urlparse(igdb_cover_url_input)
                 path_without_query = parsed_url.path
@@ -361,38 +225,135 @@ def edit_game(game_id):
                         ext = '.' + content_type.split('/')[-1].split(';')[0]
                     if not ext or len(ext) > 5:
                         ext = '.jpg'
-
                 unique_cover_filename = f"{uuid4()}{ext}"
                 cover_path = os.path.join(current_app.config['COVERS_FOLDER'], unique_cover_filename)
-
-                # Ensure the covers folder exists before saving
                 os.makedirs(current_app.config['COVERS_FOLDER'], exist_ok=True)
+                with open(cover_path, 'wb') as out_file:
+                    shutil.copyfileobj(response.raw, out_file)
+                cover_url = url_for('static', filename=f'covers/{unique_cover_filename}')
+            except requests.exceptions.RequestException as req_e:
+                flash(f"Could not download IGDB cover (Network Error): {req_e}", "warning")
+                cover_url = None
+            except Exception as e:
+                flash(f"Could not download IGDB cover (General Error): {e}", "warning")
+                cover_url = None
+        conn = get_db_connection()
+        try:
+            conn.execute('INSERT INTO games (title, system, filepath, cover_url, original_filename) VALUES (?, ?, ?, ?, ?)',
+                         (title, final_system, filepath, cover_url, original_filename))
+            conn.commit()
+            flash('Game uploaded successfully!', 'success')
+            return redirect(url_for('library.library', system=final_system))
+        except Exception as e:
+            flash(f'An error occurred: {e}', 'error')
+            if filepath and os.path.exists(filepath):
+                if os.path.isdir(filepath):
+                    shutil.rmtree(filepath)
+                else:
+                    os.remove(filepath)
+            if cover_url and os.path.exists(os.path.join(current_app.root_path, cover_url.replace('/static/', 'static/'))):
+                os.remove(os.path.join(current_app.root_path, cover_url.replace('/static/', 'static/')))
+            return redirect(request.url)
+        finally:
+            conn.close()
+    return render_template('upload_game.html', systems=systems)
 
+@library_bp.route('/edit/<int:game_id>', methods=['GET', 'POST'])
+def edit_game(game_id):
+    conn = get_db_connection()
+    game = conn.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
+    systems = conn.execute('SELECT name FROM systems ORDER BY name').fetchall()
+    conn.close()
+    if game is None:
+        flash('Game not found.', 'error')
+        return redirect(url_for('library.library'))
+    if request.method == 'POST':
+        new_title = request.form['title']
+        new_system = request.form['system']
+        new_system_name = request.form.get('new_system_name')
+        new_game_file = request.files.get('game_file')
+        new_cover_file = request.files.get('cover_file')
+        igdb_cover_url_input = request.form.get('igdb_cover_url')
+        final_system = new_system_name.strip() if new_system_name else new_system
+        if new_system_name:
+            conn = get_db_connection()
+            try:
+                conn.execute('INSERT INTO systems (name) VALUES (?)', (final_system,))
+                conn.commit()
+                flash(f"New system '{final_system}' added.", 'success')
+            except sqlite3.IntegrityError:
+                pass
+            finally:
+                conn.close()
+        updated_filepath = game['filepath']
+        updated_original_filename = game['original_filename']
+        updated_cover_url = game['cover_url']
+        if new_game_file and new_game_file.filename:
+            if updated_filepath and os.path.exists(updated_filepath):
+                if os.path.isdir(updated_filepath):
+                    shutil.rmtree(updated_filepath)
+                else:
+                    os.remove(updated_filepath)
+            filepath_from_upload, original_filename_from_upload = save_and_organize_game_file(new_game_file, final_system, new_title)
+            if filepath_from_upload is None:
+                flash("Failed to process new game file. Keeping old file.", 'error')
+            else:
+                updated_filepath = filepath_from_upload
+                updated_original_filename = original_filename_from_upload
+        if new_cover_file and new_cover_file.filename:
+            if game['cover_url'] and 'static/covers/' in game['cover_url']:
+                old_cover_path = os.path.join(current_app.root_path, game['cover_url'].replace('/static/', 'static/'))
+                if os.path.exists(old_cover_path):
+                    os.remove(old_cover_path)
+            _, cover_extension = os.path.splitext(new_cover_file.filename)
+            unique_cover_filename = f"{uuid4()}{cover_extension}"
+            cover_path = os.path.join(current_app.config['COVERS_FOLDER'], unique_cover_filename)
+            os.makedirs(current_app.config['COVERS_FOLDER'], exist_ok=True)
+            new_cover_file.save(cover_path)
+            updated_cover_url = url_for('static', filename=f'covers/{unique_cover_filename}')
+        elif igdb_cover_url_input:
+            if game['cover_url'] and 'static/covers/' in game['cover_url']:
+                old_cover_path = os.path.join(current_app.root_path, game['cover_url'].replace('/static/', 'static/'))
+                if os.path.exists(old_cover_path):
+                    os.remove(old_cover_path)
+            try:
+                response = requests.get(igdb_cover_url_input, stream=True)
+                response.raise_for_status()
+                ext = '.jpg'
+                parsed_url = urlparse(igdb_cover_url_input)
+                path_without_query = parsed_url.path
+                if '.' in path_without_query:
+                    ext = os.path.splitext(path_without_query)[-1]
+                else:
+                    content_type = response.headers.get('Content-Type')
+                    if content_type and 'image/' in content_type:
+                        ext = '.' + content_type.split('/')[-1].split(';')[0]
+                    if not ext or len(ext) > 5:
+                        ext = '.jpg'
+                unique_cover_filename = f"{uuid4()}{ext}"
+                cover_path = os.path.join(current_app.config['COVERS_FOLDER'], unique_cover_filename)
+                os.makedirs(current_app.config['COVERS_FOLDER'], exist_ok=True)
                 with open(cover_path, 'wb') as out_file:
                     shutil.copyfileobj(response.raw, out_file)
                 updated_cover_url = url_for('static', filename=f'covers/{unique_cover_filename}')
-                #flash("IGDB cover downloaded and applied.", "info")
             except requests.exceptions.RequestException as req_e:
                 flash(f"Could not download IGDB cover (Network Error): {req_e}", "warning")
-                # IMPORTANT: If download fails, revert to the original cover URL
                 updated_cover_url = game['cover_url']
             except Exception as e:
                 flash(f"Could not download IGDB cover (General Error): {e}", "warning")
-                # IMPORTANT: If download fails, revert to the original cover URL
                 updated_cover_url = game['cover_url']
         elif 'clear_cover' in request.form:
             if game['cover_url'] and 'static/covers/' in game['cover_url']:
                 old_cover_path = os.path.join(current_app.root_path, game['cover_url'].replace('/static/', 'static/'))
                 if os.path.exists(old_cover_path):
                     os.remove(old_cover_path)
-            updated_cover_url = None # Set to None if user chose to clear
-
+            updated_cover_url = None
         conn = get_db_connection()
         try:
             conn.execute('''
-                UPDATE games SET title = ?, system = ?, filepath = ?, cover_url = ?
+                UPDATE games SET title = ?, system = ?, filepath = ?, cover_url = ?, original_filename = ?
                 WHERE id = ?
-            ''', (new_title, final_system, updated_filepath, updated_cover_url, game_id))
+            ''', (new_title, final_system, updated_filepath, updated_cover_url, updated_original_filename, game_id))
             conn.commit()
             flash('Game updated successfully!', 'success')
             return redirect(url_for('library.game_detail', game_id=game_id))
@@ -401,111 +362,32 @@ def edit_game(game_id):
             return redirect(request.url)
         finally:
             conn.close()
-
     return render_template('edit_game.html', game=game, systems=systems)
-
 
 @library_bp.route('/delete/<int:game_id>')
 def delete_game(game_id):
     conn = get_db_connection()
     game = conn.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
-    
     if game is None:
         flash('Game not found.', 'error')
         conn.close()
         return redirect(url_for('library.library'))
-
     try:
-        # Delete game file
-        if os.path.exists(game['filepath']):
-            os.remove(game['filepath'])
-        
-        # Delete cover file if it's a locally stored one
+        if game['filepath'] and os.path.exists(game['filepath']):
+            if os.path.isdir(game['filepath']):
+                shutil.rmtree(game['filepath'])
+            else:
+                os.remove(game['filepath'])
         if game['cover_url'] and 'static/covers/' in game['cover_url']:
             cover_path = os.path.join(current_app.root_path, game['cover_url'].replace('/static/', 'static/'))
             if os.path.exists(cover_path):
                 os.remove(cover_path)
-
         conn.execute('DELETE FROM games WHERE id = ?', (game_id,))
         conn.commit()
         flash(f"Game '{game['title']}' deleted successfully.", 'success')
     except Exception as e:
         flash(f'An error occurred during deletion: {e}', 'error')
+        current_app.logger.error(f"Error deleting game {game_id}: {e}", exc_info=True)
     finally:
         conn.close()
-
-    # Redirect back to the library, potentially filtered by the system it was in
     return redirect(url_for('library.library', system=game['system']))
-
-
-@library_bp.route('/launch/<int:game_id>')
-def launch_game(game_id):
-    conn = get_db_connection()
-    game = conn.execute('SELECT * FROM games WHERE id = ?', (game_id,)).fetchone()
-    
-    if game is None:
-        flash('Game not found.', 'error')
-        conn.close()
-        return redirect(url_for('library.library'))
-
-    try:
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        conn.execute('UPDATE games SET last_played = ?, play_count = play_count + 1 WHERE id = ?', 
-                     (current_time, game_id))
-        conn.commit()
-        
-        system_name_lower = game['system'].lower()
-        emulator_path = None
-
-        # Query the emulator_configs table for the configured path
-        config_row = conn.execute('SELECT emulator_path FROM emulator_configs WHERE system_name = ?', (system_name_lower,)).fetchone()
-        if config_row:
-            emulator_path = config_row['emulator_path']
-        
-        conn.close() # Close connection after fetching all necessary data
-
-        if not emulator_path:
-            flash(f"No desktop emulator configured for system: {game['system']}. Please go to Settings to configure it.", 'error')
-            return redirect(url_for('library.game_detail', game_id=game['id']))
-
-        emulator_command = []
-        # Construct the command based on the system and retrieved path
-        if system_name_lower == 'nes':
-            emulator_command = [emulator_path, game['filepath']]
-        elif system_name_lower == 'snes':
-            emulator_command = [emulator_path, game['filepath']]
-        elif system_name_lower == 'n64':
-            emulator_command = [emulator_path, game['filepath']]
-        elif system_name_lower == 'gba':
-            emulator_command = [emulator_path, game['filepath']]
-        elif system_name_lower == 'mame':
-            emulator_command = [emulator_path, game['filepath']]
-        elif system_name_lower == 'dreamcast':
-            # Dreamcast might need special arguments
-            emulator_command = [emulator_path, '-run=dc', '-rom=' + game['filepath']]
-        elif system_name_lower == 'ps1':
-            # PS1 might need special arguments
-            emulator_command = [emulator_path, '-nogui', '-loadbin', game['filepath']]
-        elif system_name_lower == 'pc':
-            if os.name == 'nt': # Windows
-                os.startfile(game['filepath']) # On Windows, this opens the file with its default program
-                flash(f"Launched PC game: {game['title']}", 'success')
-                return redirect(url_for('library.game_detail', game_id=game['id']))
-            else: # Linux/macOS
-                subprocess.Popen([game['filepath']], start_new_session=True)
-                flash(f"Launched PC game: {game['title']}", 'success')
-                return redirect(url_for('library.game_detail', game_id=game['id']))
-        else:
-            flash(f"Unsupported system for desktop emulation: {game['system']}.", 'error')
-            return redirect(url_for('library.game_detail', game_id=game['id']))
-
-        if emulator_command:
-            subprocess.Popen(emulator_command, start_new_session=True)
-            flash(f"Launched {game['title']} using {game['system']} emulator.", 'success')
-        
-    except FileNotFoundError:
-        flash(f"Emulator executable not found at '{emulator_path}'. Please check your settings.", 'error')
-    except Exception as e:
-        flash(f"An error occurred while launching the game: {e}", 'error')
-    
-    return redirect(url_for('library.game_detail', game_id=game['id']))

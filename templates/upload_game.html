@@ -38,14 +38,111 @@
             <button type="button" onclick="searchIgdb()">Search IGDB</button>
         </div>
         <div id="igdb_results" class="game-grid" style="margin-top: 15px;">
-            </div>
+            <p style="text-align: center;">Search results will appear here.</p>
+        </div>
         <input type="hidden" id="igdb_cover_url" name="igdb_cover_url">
     </fieldset>
 
     <button type="submit" class="button primary">Upload Game</button>
+    <a href="{{ url_for('library.library') }}" class="button secondary">Cancel</a> {# Added Cancel button for consistency #}
 </form>
 
+{# --- Toast Notification HTML --- #}
+<div id="zipToast" class="toast-notification">
+    <p><strong>Heads up!</strong> You've selected a .zip file.</p>
+    <p>Please manually select the correct system from the dropdown.</p>
+    <p>The file will be automatically extracted upon upload.</p>
+</div>
+
 <script>
+    // --- Auto-fill Game Title from File Name and Auto-Detect System ---
+    document.addEventListener('DOMContentLoaded', function() {
+        const gameFileInput = document.getElementById('game_file');
+        const titleInput = document.getElementById('title');
+        const igdbSearchQueryInput = document.getElementById('igdb_search_query');
+        const systemSelect = document.getElementById('system'); // Get the system select element
+        const zipToast = document.getElementById('zipToast'); // Get the toast notification element
+
+        // Mapping of common file extensions to system names
+        // Removed '.zip': 'Arcade' as .zip can contain many types of ROMs.
+        // For .zip files, the user will need to manually select the system.
+        const extensionToSystemMap = {
+            '.nes': 'Nintendo Entertainment System',
+            '.sfc': 'Super Nintendo',
+            '.smc': 'Super Nintendo',
+            '.gb': 'Game Boy',
+            '.gbc': 'Game Boy Color',
+            '.gba': 'Game Boy Advance',
+            '.n64': 'Nintendo 64',
+            '.z64': 'Nintendo 64',
+            '.v64': 'Nintendo 64',
+            '.gen': 'Sega Genesis',
+            '.md': 'Sega Genesis',
+            '.sms': 'Sega Master System',
+            '.gg': 'Sega Game Gear',
+            '.ps1': 'PlayStation 1',
+            '.iso': 'PlayStation 1', // Note: .iso can be for other systems too, might need refinement
+            '.cue': 'PlayStation 1',
+            '.chd': 'PlayStation 1'  // Note: .chd can be for other systems too, might need refinement
+            // Add more mappings as needed for other systems
+        };
+
+        gameFileInput.addEventListener('change', function() {
+            if (this.files && this.files.length > 0) {
+                const fileName = this.files[0].name;
+                const fileExtension = '.' + fileName.split('.').pop().toLowerCase(); // Get extension with dot
+                let cleanedFileName = fileName.split('.').slice(0, -1).join('.'); // Remove extension first
+
+                // Regex to remove common ROM identifiers (case-insensitive)
+                const identifiersRegex = /(\s*\([^)]*\)\s*|\s*\[[^\]]*\]\s*|\s*\{[^}]*\}\s*|\bv\d+\.?\d*\b|\brev\d+\b|\bbeta\b|\balpha\b|\bdemo\b|\bunl\b|\bproto\b|\bdebug\b|\bhack\b|\bfix\b|\balt\b|\bkiosk\b|\bsample\b|\bpromo\b|\bworld\b|\bjapan\b|\busa\b|\beurope\b|\baustralia\b|\bcanada\b|\bfrance\b|\bgermany\b|\bitaly\b|\bspain\b|\buk\b|\bnl\b|\bswe\b|\bfin\b|\bden\b|\bnor\b|\bbra\b|\bchi\b|\bkor\b|\basia\b|\bfre\b|\bger\b|\bita\b|\bspa\b|\beng\b|\bmulti\b|\s*\(\d{4}\)\s*)/ig;
+                
+                // Replace identified patterns with a single space, then trim extra spaces
+                cleanedFileName = cleanedFileName.replace(identifiersRegex, ' ').replace(/\s+/g, ' ').trim();
+
+                // Remove common trailing delimiters if they are now at the end
+                cleanedFileName = cleanedFileName.replace(/[\s\-_.]+$/, '').trim();
+
+                // Capitalize first letter of each word (optional, but often looks cleaner)
+                cleanedFileName = cleanedFileName.replace(/\b\w/g, char => char.toUpperCase());
+
+                // Populate the main title input
+                titleInput.value = cleanedFileName;
+
+                // Also populate the IGDB search query input for convenience
+                igdbSearchQueryInput.value = cleanedFileName;
+
+                // --- Auto-detect and set System ---
+                const detectedSystem = extensionToSystemMap[fileExtension];
+                if (detectedSystem) {
+                    const optionExists = Array.from(systemSelect.options).some(option => option.value === detectedSystem);
+                    if (optionExists) {
+                        systemSelect.value = detectedSystem;
+                    } else {
+                        console.warn(`Detected system "${detectedSystem}" from extension "${fileExtension}" is not in the dropdown list.`);
+                        systemSelect.value = ''; 
+                    }
+                } else {
+                    systemSelect.value = ''; // Reset to "-- Select or Add New --"
+                }
+
+                // --- Show/Hide Zip Toast Notification ---
+                if (fileExtension === '.zip') {
+                    zipToast.classList.add('show');
+                } else {
+                    zipToast.classList.remove('show');
+                }
+
+            } else {
+                // Clear inputs if no file is selected
+                titleInput.value = '';
+                igdbSearchQueryInput.value = '';
+                systemSelect.value = ''; // Also clear system selection
+                zipToast.classList.remove('show'); // Hide toast if no file selected
+            }
+        });
+    });
+
+    // --- IGDB Search Functionality (Existing) ---
     async function searchIgdb() {
         const query = document.getElementById('igdb_search_query').value;
         const resultsDiv = document.getElementById('igdb_results');
@@ -70,7 +167,6 @@
             games.forEach(game => {
                 const gameCard = document.createElement('div');
                 gameCard.className = 'game-card'; // Reuse your game-card style
-                // Add a data-cover-url attribute to easily find the selected image later
                 gameCard.innerHTML = `
                     <img src="${game.cover_url || '{{ url_for("static", filename="placeholder.png") }}'}" 
                          alt="Cover" 
@@ -92,7 +188,6 @@
         }
     }
 
-    // Modified to accept the clicked image element and the cover URL
     function selectIgdbCover(clickedImage, coverUrl) {
         document.getElementById('igdb_cover_url').value = coverUrl;
 
@@ -105,4 +200,44 @@
         clickedImage.classList.add('selected-igdb-cover');
     }
 </script>
+
+{# --- Toast Notification CSS (add this to your style.css) --- #}
+<style>
+.toast-notification {
+    visibility: hidden; /* Hidden by default */
+    min-width: 250px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 8px;
+    padding: 16px;
+    position: fixed;
+    z-index: 100; /* High z-index to be on top */
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 30px; /* Position at the bottom */
+    font-size: 16px;
+    opacity: 0;
+    transition: visibility 0s, opacity 0.5s ease-in-out;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.toast-notification.show {
+    visibility: visible;
+    opacity: 1;
+}
+
+.toast-notification p {
+    margin: 5px 0;
+    line-height: 1.4;
+}
+
+.toast-notification p:first-child {
+    margin-top: 0;
+}
+
+.toast-notification p:last-child {
+    margin-bottom: 0;
+}
+</style>
 {% endblock %}

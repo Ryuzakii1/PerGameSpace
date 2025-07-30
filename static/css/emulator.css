@@ -1,0 +1,210 @@
+/* static/css/emulator.css */
+
+/* --- Main Container --- */
+/* Overrides the default container to fill the screen for an immersive experience */
+.emulator-container {
+    max-width: 100%;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 2rem); /* Full viewport height minus padding */
+}
+
+/* --- Emulator Screen & Canvas --- */
+.emulator-screen {
+    width: 100%;
+    max-width: 960px; /* Adjust max-width as needed */
+    background-color: #000;
+    border-radius: var(--border-radius-lg);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    position: relative;
+    overflow: hidden;
+    /* Maintain a 4:3 aspect ratio for the container */
+    aspect-ratio: 4 / 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#snes-canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain; /* Ensures the canvas fits within the container */
+}
+
+/* --- Loading Overlay --- */
+.loading-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.85); /* Matches dark theme bg color with opacity */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color-light);
+    font-size: 1.25rem;
+    cursor: pointer;
+    z-index: 10;
+}
+
+/* --- FIX: Changed from opacity to display: none --- */
+/* This completely removes the overlay from the screen, ensuring it doesn't block the canvas. */
+.loading-overlay.hidden {
+    display: none;
+}
+
+.loader {
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1.5rem;
+}
+
+#loading-sub-message {
+    font-size: 0.9rem;
+    color: var(--text-color-muted);
+    margin-top: 0.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* --- Title and Status Bar --- */
+.game-title-bar {
+    width: 100%;
+    max-width: 960px;
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.game-title-bar h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-color-light);
+    margin: 0;
+}
+
+.status-message {
+    min-height: 1.2em; /* Prevents layout shift when message appears */
+    font-size: 0.9rem;
+    color: var(--text-color-muted);
+    margin-top: 0.25rem;
+    transition: color 0.3s ease;
+}
+
+/* --- Controls Grid --- */
+.controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 960px;
+    margin-top: 1.5rem;
+}
+
+/* --- Settings Panel --- */
+.settings-panel {
+    position: fixed;
+    top: 0;
+    right: -400px; /* Start off-screen */
+    width: 100%;
+    max-width: 400px;
+    height: 100%;
+    background-color: var(--background-color-dark);
+    box-shadow: -10px 0 25px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    transition: right 0.3s ease-in-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-panel.open {
+    right: 0; /* Slide in */
+}
+
+.settings-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-panel-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    color: var(--text-color-muted);
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.close-button:hover {
+    color: var(--text-color-light);
+}
+
+.settings-panel-body {
+    padding: 1.5rem;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.settings-panel-body h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+}
+
+.key-bindings-grid {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.key-binding-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.key-bind-button {
+    background-color: var(--background-color-light);
+    border: 1px solid var(--border-color);
+    color: var(--text-color-normal);
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    min-width: 100px;
+    text-align: center;
+}
+
+.key-bind-button.active-binding {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.settings-panel-actions {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
