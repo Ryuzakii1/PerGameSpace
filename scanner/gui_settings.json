@@ -1,5 +1,7 @@
 {
     "dark_mode": true,
     "hide_log_output": true,
-    "import_mode": "copy"
+    "import_mode": "copy",
+    "igdb_client_id": "mymjmr4unu3htgiy1m2aydvlowvhz5",
+    "igdb_client_secret": "rfkmjzy4cf1mzoagis3ei8u4kvfqfh"
 }

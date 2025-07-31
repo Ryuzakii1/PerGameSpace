@@ -113,6 +113,10 @@ class ScannerGUI:
         self.supported_systems = []
         self.last_selected_tab_text = None
 
+        # IGDB Credentials
+        self.igdb_client_id = tk.StringVar(value=self.settings.get("igdb_client_id", ""))
+        self.igdb_client_secret = tk.StringVar(value=self.settings.get("igdb_client_secret", ""))
+
         # Store BASE_DIR and EMULATORS config on the app object for easy access by other modules
         self.base_dir = BASE_DIR
         self.EMULATORS = EMULATORS
@@ -177,6 +181,8 @@ class ScannerGUI:
             "dark_mode": self.dark_mode_enabled.get(),
             "hide_log_output": self.hide_log_output_var.get(),
             "import_mode": self.import_mode.get(),
+            "igdb_client_id": self.igdb_client_id.get(),
+            "igdb_client_secret": self.igdb_client_secret.get(),
         }
         with open(SETTINGS_FILE, 'w') as f:
             json.dump(settings_data, f, indent=4)
@@ -349,4 +355,3 @@ class ScannerGUI:
         except Exception as e:
             self.log(f"Failed to copy log to clipboard: {e}", "error")
             self.update_main_status("Failed to copy log.", "error")
-

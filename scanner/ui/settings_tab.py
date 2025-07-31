@@ -3,7 +3,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import threading
-import os # Make sure os is imported here for os.path.join
+import os
 
 # Import the necessary core functions for backup/restore
 from ..core import backup_application_data, restore_application_data
@@ -13,41 +13,85 @@ def create_settings_tab(notebook, app):
     settings_tab = ttk.Frame(notebook, padding="10")
     notebook.add(settings_tab, text="Settings")
 
-    # --- Application Settings ---
-    app_settings_frame = ttk.LabelFrame(settings_tab, text="Application Settings", padding="15")
-    app_settings_frame.pack(fill=tk.X, pady=10, padx=5)
+    # --- Create a Canvas with a Scrollbar to make the content area scrollable ---
+    # Get the current background color from the style to prevent the "white box" effect.
+    bg_color = app.style.lookup("TFrame", "background")
+    canvas = tk.Canvas(settings_tab, borderwidth=0, highlightthickness=0, background=bg_color)
+    scrollbar = ttk.Scrollbar(settings_tab, orient="vertical", command=canvas.yview)
+    scrollable_frame = ttk.Frame(canvas)
 
-    # Dark Mode Toggle
-    # Note: A ttk.Checkbutton with a BooleanVar *is* already a toggle.
-    # Clicking it automatically flips the variable's value.
-    # The 'command' simply reacts to this new value.
+    # This binding updates the scrollregion for the VERTICAL scrollbar
+    # when the content of the frame changes size.
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(
+            scrollregion=canvas.bbox("all")
+        )
+    )
+
+    # Place the scrollable frame inside the canvas and get its ID
+    frame_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+    # This binding updates the width of the frame to match the canvas width
+    # when the canvas itself is resized. This fixes the horizontal sizing issue.
+    def on_canvas_resize(event):
+        canvas.itemconfig(frame_id, width=event.width)
+
+    canvas.bind("<Configure>", on_canvas_resize)
+
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    # Pack the canvas and scrollbar to fill the tab
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+
+    # --- Application Settings (placed inside the scrollable_frame) ---
+    app_settings_frame = ttk.LabelFrame(scrollable_frame, text="Application Settings", padding="15")
+    app_settings_frame.pack(fill=tk.X, pady=10, padx=10, expand=True)
+
     dark_mode_checkbox = ttk.Checkbutton(
         app_settings_frame,
-        text="Enable Dark Mode", # Text remains clear
+        text="Enable Dark Mode",
         variable=app.dark_mode_enabled,
-        command=app.apply_dark_mode # Call the apply function
+        command=app.apply_dark_mode
     )
     dark_mode_checkbox.pack(anchor=tk.W, pady=5)
 
-    # Hide Log Output Toggle (Updated Label and Function Call)
     hide_log_output_checkbox = ttk.Checkbutton(
         app_settings_frame,
-        text="Hide Log Output Toggle", # New, clearer label
-        variable=app.hide_log_output_var, # Uses the renamed variable
-        command=app.toggle_log_output_visibility # Calls the renamed function
+        text="Hide Log Output Panel",
+        variable=app.hide_log_output_var,
+        command=app.toggle_log_output_visibility
     )
     hide_log_output_checkbox.pack(anchor=tk.W, pady=5)
 
-    # --- Backup & Restore Section ---
-    backup_frame = ttk.LabelFrame(settings_tab, text="Backup & Restore", padding="15")
-    backup_frame.pack(fill=tk.X, pady=10, padx=5)
+    # --- IGDB API Settings (placed inside the scrollable_frame) ---
+    igdb_frame = ttk.LabelFrame(scrollable_frame, text="IGDB API Settings", padding="15")
+    igdb_frame.pack(fill=tk.X, pady=10, padx=10, expand=True)
+    igdb_frame.columnconfigure(1, weight=1)
+
+    ttk.Label(igdb_frame, text="Client ID:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
+    igdb_id_entry = ttk.Entry(igdb_frame, textvariable=app.igdb_client_id)
+    igdb_id_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=2)
+
+    ttk.Label(igdb_frame, text="Client Secret:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
+    igdb_secret_entry = ttk.Entry(igdb_frame, textvariable=app.igdb_client_secret, show="*")
+    igdb_secret_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=2)
+
+    ttk.Label(igdb_frame, text="Credentials are saved when the application is closed.", wraplength=400, justify=tk.LEFT).grid(row=2, column=0, columnspan=2, sticky="w", padx=5, pady=(10,0))
+
+
+    # --- Backup & Restore Section (placed inside the scrollable_frame) ---
+    backup_frame = ttk.LabelFrame(scrollable_frame, text="Backup & Restore", padding="15")
+    backup_frame.pack(fill=tk.X, pady=10, padx=10, expand=True)
+    backup_frame.columnconfigure(1, weight=1)
 
     ttk.Label(backup_frame, text="Backup Location:").grid(row=0, column=0, sticky="w", padx=5, pady=5)
-    # Ensure app.base_dir is converted to a string for os.path.join if it's a Path object
+    
     app.backup_path_var = tk.StringVar(value=os.path.join(str(app.base_dir), "backup"))
     app.backup_entry = ttk.Entry(backup_frame, textvariable=app.backup_path_var)
     app.backup_entry.grid(row=0, column=1, sticky="ew", padx=5, pady=5)
-    backup_frame.columnconfigure(1, weight=1)
 
     btn_browse_backup = ttk.Button(backup_frame, text="Browse...", command=lambda: browse_backup_folder(app))
     btn_browse_backup.grid(row=0, column=2, padx=5, pady=5)
@@ -63,8 +107,6 @@ def create_settings_tab(notebook, app):
     app.btn_restore = btn_restore
     app.btn_browse_backup = btn_browse_backup
 
-
-# --- Helper functions for Backup/Restore UI operations ---
 
 def _set_button_states(app, state):
     """Helper to set the state of backup/restore buttons."""
@@ -94,7 +136,7 @@ def start_backup_thread(app):
 
     def do_backup():
         try:
-            backup_application_data(backup_location, lambda msg, tag=None: app.log(msg, tag))
+            backup_application_data(backup_location, app.log, app.base_dir)
             app.master.after(0, messagebox.showinfo, "Backup Complete", f"Application data successfully backed up to:\n{backup_location}")
             app.log("Backup process completed successfully.", "success")
             app.update_main_status("Backup complete!", "success")
@@ -131,7 +173,7 @@ def start_restore_thread(app):
 
     def do_restore():
         try:
-            restore_application_data(restore_location, lambda msg, tag=None: app.log(msg, tag))
+            restore_application_data(restore_location, app.log, app.base_dir)
             app.master.after(0, messagebox.showinfo, "Restore Complete", "Application data successfully restored.\n\n"
                                                             "You may need to restart the application for all changes to take effect.")
             app.log("Restore process completed successfully. Please restart the app.", "success")
