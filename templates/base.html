@@ -7,13 +7,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/toast.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/' + get_setting('theme', 'modern') + '.css') }}">
-    {# Define the 'styles' block here so child templates can extend it #}
     {% block styles %}{% endblock styles %}
 </head>
 <body>
-    <div id="toast-container" class="toast-container">
-    </div>
-
+    <div id="toast-container" class="toast-container"></div>
     <div id="flashed-messages-data" style="display:none;">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -26,11 +23,11 @@
 
     <header>
         <div class="container">
-            <h1><a href="{{ url_for('library.index') }}">My Game Library</a></h1>
+            <h1><a href="{{ url_for('navigation.index') }}">My Game Library</a></h1>
             <nav>
                 <ul>
-                    <li><a href="{{ url_for('library.library') }}">Library</a></li>
-                    <li><a href="{{ url_for('library.upload_game') }}">Upload Game</a></li>
+                    <li><a href="{{ url_for('navigation.library') }}">Library</a></li>
+                    <li><a href="{{ url_for('navigation.upload_game') }}">Upload Game</a></li>
                     <li><a href="{{ url_for('settings.settings') }}">Settings</a></li>
                 </ul>
             </nav>
@@ -39,7 +36,6 @@
 
     <main>
         <div class="container">
-            {# Removed the old Flask flash message display block here #}
             {% block content %}{% endblock content %}
         </div>
     </main>
@@ -50,7 +46,6 @@
         </div>
     </footer>
 
-    {# NEW: Define the 'scripts' block here to allow child templates to extend it #}
     {% block scripts %}
     <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
     {% endblock scripts %}

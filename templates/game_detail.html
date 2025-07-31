@@ -4,7 +4,11 @@
 <div class="game-detail-container">
     <div class="game-detail-header">
         <h1>{{ game.title }}</h1>
-        {# The game-actions div is moved below #}
+        <p class="text-muted" style="font-style: italic;">
+            {% if game.release_year %}{{ game.release_year }}{% endif %}
+            {% if game.release_year and game.system %} - {% endif %}
+            {% if game.system %}{{ game.system }}{% endif %}
+        </p>
     </div>
 
     <div class="game-info-grid">
@@ -12,20 +16,38 @@
             <img src="{{ game.cover_url or url_for('static', filename='placeholder.png') }}" alt="Game Cover">
         </div>
         <div class="game-details">
-            <p><strong>System:</strong> {{ game.system }}</p>
-            {# Removed File Path: <p><strong>File Path:</strong> {{ game.filepath }}</p> #}
+            {% if game.genre %}
+                <p><strong>Genre:</strong> {{ game.genre }}</p>
+            {% endif %}
+            {% if game.developer %}
+                <p><strong>Developer:</strong> {{ game.developer }}</p>
+            {% endif %}
+            {% if game.publisher %}
+                <p><strong>Publisher:</strong> {{ game.publisher }}</p>
+            {% endif %}
+            {% if game.play_status %}
+                <p><strong>Status:</strong> {{ game.play_status }}</p>
+            {% endif %}
+            
+            <hr style="margin: 15px 0;">
+
             {% if game.original_filename %}
-                <p><strong>Original File Name:</strong> {{ game.original_filename }}</p>
+                <p><strong>Original File:</strong> {{ game.original_filename }}</p>
             {% endif %}
             <p><strong>Last Played:</strong> {{ game.last_played or 'Never' }}</p>
             <p><strong>Play Count:</strong> {{ game.play_count }}</p>
 
+            <hr style="margin: 15px 0;">
+
+            {% if game.description %}
+                <p><strong>Description:</strong><br>{{ game.description | safe }}</p>
+            {% endif %}
+
             <div class="game-play-options">
-                {# Existing Play/Download Buttons #}
                 {% if web_emulator_url %}
                     <a href="{{ web_emulator_url }}" class="button primary">Play in Web Emulator</a>
                 {% else %}
-                    <button class="button primary" disabled title="Web emulation not available for this game/system">Play in Web Emulator</button>
+                    <button class="button primary" disabled title="Web emulation not available">Play Online</button>
                 {% endif %}
 
                 {% if desktop_emulator_url %}
@@ -39,12 +61,13 @@
                 {% else %}
                     <button class="button secondary" disabled title="Download not available for this game">Download Game</button>
                 {% endif %}
+            </div>
 
-                {# Moved Edit and Delete Buttons here #}
-                <div class="game-actions" style="margin-top: 20px;"> {# Added margin for spacing #}
-                    <a href="{{ url_for('library.edit_game', game_id=game.id) }}" class="button secondary">Edit Game</a>
-                    <a href="{{ url_for('library.delete_game', game_id=game.id) }}" class="button danger" onclick="return confirm('Are you sure you want to delete {{ game.title }}? This cannot be undone.');">Delete Game</a>
-                </div>
+            <div class="game-actions" style="margin-top: 20px;">
+                <a href="{{ url_for('library.edit_game', game_id=game.id) }}" class="button secondary">Edit Game</a>
+                <form action="{{ url_for('library.delete_game', game_id=game.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to permanently delete this game?');">
+                    <button type="submit" class="button danger">Delete</button>
+                </form>
             </div>
         </div>
     </div>

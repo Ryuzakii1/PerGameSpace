@@ -4,13 +4,15 @@
 <div class="homepage-hero">
     <h1>Welcome to My Game Library!</h1>
     <p>Organize, browse, and manage your video game collection.</p>
-    <a href="{{ url_for('library.library') }}" class="button primary large">Browse All Games</a>
+    {# --- ACTION REQUIRED: Point to the new 'navigation' blueprint --- #}
+    <a href="{{ url_for('navigation.library') }}" class="button primary large">Browse All Games</a>
 </div>
 
 <h2>Browse by System</h2>
 {% if systems %}
 <div class="system-grid">
     {% for system in systems %}
+    {# This link is created in your navigation.py file and is correct #}
     <a href="{{ system.url }}" class="system-card">
         <img src="{{ system.image_url }}" alt="{{ system.name }} System Silhouette">
         <h3>{{ system.name }}</h3>
@@ -19,9 +21,8 @@
     {% endfor %}
 </div>
 {% else %}
-<p>No systems found yet. <a href="{{ url_for('library.upload_game') }}">Upload your first game</a> to get started!</p>
+{# --- ACTION REQUIRED: Point to the new 'navigation' blueprint --- #}
+<p>No systems found yet. <a href="{{ url_for('navigation.upload_game') }}">Upload your first game</a> to get started!</p>
 {% endif %}
-
-{# You can add more sections here if you want, e.g., "Recently Added Games", "Most Played Games" #}
 
 {% endblock %}
