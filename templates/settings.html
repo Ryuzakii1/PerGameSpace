@@ -21,11 +21,9 @@
         </fieldset>
 
         <fieldset class="bg-gray-800 rounded-lg shadow-xl p-6">
-            <legend class="text-2xl font-semibold text-white mb-4">IGDB API Credentials (from Twitch Developers)</legend>
+            <legend class="text-2xl font-semibold text-white mb-4">IGDB API Credentials</legend>
             <p class="text-gray-400 text-sm mb-4">
-                These are required for searching and downloading game covers from IGDB.
-                Register an application on <a href="https://dev.twitch.tv/" target="_blank" class="text-blue-400 hover:text-blue-300">Twitch Developers</a>
-                to get your Client ID and Client Secret.
+                Required for searching and downloading game metadata and covers from IGDB.
             </p>
             <div class="form-group mb-4">
                 <label for="igdb_client_id" class="block text-gray-300 text-sm font-bold mb-2">Client ID:</label>
@@ -43,40 +41,30 @@
             </div>
         </fieldset>
 
-        {# NEW: Emulator Paths Settings #}
+        {# CORRECTED: Emulator Paths Settings #}
         <fieldset class="bg-gray-800 rounded-lg shadow-xl p-6">
             <legend class="text-2xl font-semibold text-white mb-4">Desktop Emulator Paths</legend>
             <p class="text-gray-400 text-sm mb-4">
-                Configure the full path to the executable for each desktop emulator.
-                <br>Example: <code>C:\Emulators\Snes9x\snes9x.exe</code> (Windows) or <code>/usr/bin/snes9x</code> (Linux/macOS).
-                <br>Leave empty to clear a path.
+                Configure the full path to the executable for each emulator program. Leave empty to clear a path.
             </p>
-            {% if available_systems %}
-                {% for system in available_systems %}
-                    {# Create a unique ID and name for each input field based on system name #}
-                    {% set input_id = 'emulator_path_' + system.name.lower().replace(' ', '_').replace('.', '').replace('&', 'and') %}
+            {% if emulator_statuses %}
+                {% for name, data in emulator_statuses.items() %}
+                    {% set input_id = 'emulator_path_' + name.lower().replace(' ', '_') %}
                     {% set input_name = input_id %}
                     
-                    {# Find the current configured path for this system, if it exists #}
-                    {% set current_path = '' %}
-                    {% for config in emulator_configs %}
-                        {% if config.system_name == system.name.lower() %}
-                            {% set current_path = config.emulator_path %}
-                            {# Removed 'break' - Jinja2 does not support it directly. #}
-                            {# Since backend ensures unique system_name, last match is correct. #}
+                    <div class="form-group mb-6">
+                        <label for="{{ input_id }}" class="block text-gray-300 text-sm font-bold mb-2">{{ name }} Path:</label>
+                        {% if data.systems %}
+                            <p class="text-gray-500 text-xs mb-1">Supports: {{ data.systems|join(', ') }}</p>
                         {% endif %}
-                    {% endfor %}
-
-                    <div class="form-group mb-4">
-                        <label for="{{ input_id }}" class="block text-gray-300 text-sm font-bold mb-2">{{ system.name }} Emulator Path:</label>
                         <input type="text" id="{{ input_id }}" name="{{ input_name }}" 
-                               value="{{ current_path }}" 
-                               placeholder="Path to {{ system.name }} emulator executable"
+                               value="{{ data.path }}" 
+                               placeholder="Path to {{ name }} executable"
                                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 text-white">
                     </div>
                 {% endfor %}
             {% else %}
-                <p class="text-gray-400">No systems found in your library. Add games to configure emulators.</p>
+                <p class="text-gray-400">No emulators found in the application configuration.</p>
             {% endif %}
         </fieldset>
 

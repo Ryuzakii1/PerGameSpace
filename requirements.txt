@@ -1,2 +1,5 @@
-Flask==2.3.2
-requests==2.31.0
+Flask
+Flask-Cors
+requests
+py7zr
+Pillow

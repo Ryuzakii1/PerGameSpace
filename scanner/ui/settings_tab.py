@@ -14,37 +14,26 @@ def create_settings_tab(notebook, app):
     notebook.add(settings_tab, text="Settings")
 
     # --- Create a Canvas with a Scrollbar to make the content area scrollable ---
-    # Get the current background color from the style to prevent the "white box" effect.
     bg_color = app.style.lookup("TFrame", "background")
     canvas = tk.Canvas(settings_tab, borderwidth=0, highlightthickness=0, background=bg_color)
     scrollbar = ttk.Scrollbar(settings_tab, orient="vertical", command=canvas.yview)
     scrollable_frame = ttk.Frame(canvas)
 
-    # This binding updates the scrollregion for the VERTICAL scrollbar
-    # when the content of the frame changes size.
     scrollable_frame.bind(
         "<Configure>",
-        lambda e: canvas.configure(
-            scrollregion=canvas.bbox("all")
-        )
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
     )
 
-    # Place the scrollable frame inside the canvas and get its ID
     frame_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
-    # This binding updates the width of the frame to match the canvas width
-    # when the canvas itself is resized. This fixes the horizontal sizing issue.
     def on_canvas_resize(event):
         canvas.itemconfig(frame_id, width=event.width)
 
     canvas.bind("<Configure>", on_canvas_resize)
-
     canvas.configure(yscrollcommand=scrollbar.set)
 
-    # Pack the canvas and scrollbar to fill the tab
     canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
-
 
     # --- Application Settings (placed inside the scrollable_frame) ---
     app_settings_frame = ttk.LabelFrame(scrollable_frame, text="Application Settings", padding="15")
@@ -58,13 +47,14 @@ def create_settings_tab(notebook, app):
     )
     dark_mode_checkbox.pack(anchor=tk.W, pady=5)
 
-    hide_log_output_checkbox = ttk.Checkbutton(
+    # Updated checkbox for the new log window functionality
+    show_log_checkbox = ttk.Checkbutton(
         app_settings_frame,
-        text="Hide Log Output Panel",
-        variable=app.hide_log_output_var,
-        command=app.toggle_log_output_visibility
+        text="Show Log Output Window",
+        variable=app.log_window_visible_var,
+        command=app.toggle_log_window
     )
-    hide_log_output_checkbox.pack(anchor=tk.W, pady=5)
+    show_log_checkbox.pack(anchor=tk.W, pady=5)
 
     # --- IGDB API Settings (placed inside the scrollable_frame) ---
     igdb_frame = ttk.LabelFrame(scrollable_frame, text="IGDB API Settings", padding="15")
