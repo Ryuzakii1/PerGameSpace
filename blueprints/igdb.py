@@ -1,149 +1,68 @@
-import os
-import json
-import requests
-from datetime import datetime, timedelta
-
-from flask import Blueprint, request, redirect, url_for, flash, current_app
-
+# blueprints/igdb.py
+from flask import Blueprint, request, jsonify, flash, current_app
 from utils import get_setting
+from scanner.core import fetch_igdb_data, download_and_set_cover_image
+import json
+from datetime import datetime
 
 igdb_bp = Blueprint('igdb', __name__)
 
-# --- Helper function to construct IGDB image URLs ---
 def construct_igdb_image_url(image_id, size="cover_big"):
-    """
-    Constructs a full HTTPS URL for an IGDB image.
-    Valid sizes (common examples):
-    "thumb", "cover_small", "cover_big", "cover_big_2x",
-    "screenshot_med", "screenshot_big", "720p", "1080p", "original"
-    """
+    """Constructs a full HTTPS URL for an IGDB image."""
     if image_id:
         return f"https://images.igdb.com/igdb/image/upload/t_{size}/{image_id}.jpg"
-    return None # Return None if image_id is not provided
+    return None
 
-# IGDB Token Management Functions (These remain the same)
-def _get_igdb_access_token():
-    # ... (your existing code for token management) ...
-    # Prioritize settings from settings.json, fall back to config.py if not found
-    client_id = get_setting('igdb_client_id', current_app.config['IGDB_CLIENT_ID'])
-    client_secret = get_setting('igdb_client_secret', current_app.config['IGDB_CLIENT_SECRET'])
-
-    # Validate that actual (non-placeholder) credentials exist
-    if not client_id or not client_secret or \
-       client_id == 'YOUR_IGDB_CLIENT_ID' or \
-       client_secret == 'YOUR_IGDB_CLIENT_SECRET':
-        flash("IGDB Client ID or Client Secret not set. Please go to Settings to configure.", "warning")
-        return None
-
-    token_data = {}
-    token_file = current_app.config['IGDB_TOKEN_FILE']
-    if os.path.exists(token_file):
-        with open(token_file, 'r') as f:
-            token_data = json.load(f)
-
-    if token_data and 'access_token' in token_data and 'expires_at' in token_data:
-        if datetime.now() < datetime.fromtimestamp(token_data['expires_at']):
-            return token_data['access_token']
-
-    try:
-        url = "https://id.twitch.tv/oauth2/token"
-        payload = {
-            'client_id': client_id,
-            'client_secret': client_secret,
-            'grant_type': 'client_credentials'
-        }
-        response = requests.post(url, data=payload)
-        response.raise_for_status()
-
-        new_token_data = response.json()
-        access_token = new_token_data['access_token']
-        expires_in = new_token_data['expires_in']
-
-        expires_at = datetime.now() + timedelta(seconds=expires_in - 300) # 5 min buffer
-
-        token_data = {
-            'access_token': access_token,
-            'expires_at': expires_at.timestamp()
-        }
-
-        with open(token_file, 'w') as f:
-            json.dump(token_data, f, indent=4)
-
-        return access_token
-    except requests.exceptions.RequestException as e:
-        flash(f"Error getting IGDB access token. Check credentials and internet connection: {e}", 'error')
-        print(f"Error getting IGDB access token: {e}")
-        return None
-
-def _igdb_api_request(endpoint, query_body):
-    access_token = _get_igdb_access_token()
-    if not access_token:
-        return None
-
-    # Prioritize settings from settings.json, fall back to config.py if not found
-    client_id = get_setting('igdb_client_id', current_app.config['IGDB_CLIENT_ID'])
-
-    headers = {
-        'Client-ID': client_id,
-        'Authorization': f'Bearer {access_token}',
-        'Accept': 'application/json'
-    }
-    url = f"https://api.igdb.com/v4/{endpoint}"
-
-    try:
-        response = requests.post(url, headers=headers, data=query_body)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        flash(f"Error making IGDB API request. Check console for details.", 'error')
-        print(f"Error making IGDB API request to {endpoint}: {e}")
-        return None
-
-# IGDB Routes
 @igdb_bp.route('/igdb_search', methods=['GET'])
 def igdb_search():
     query = request.args.get('query', '').strip()
-    if not query:
-        return json.dumps([])
+    system = request.args.get('system', '').strip()
+    if not query or not system:
+        return jsonify([])
 
-    # IMPORTANT: Request 'cover.image_id' instead of just 'cover.url'
-    # This allows us to construct the URL with a specific size later.
-    query_body = f'search "{query}"; fields name, cover.image_id, platforms.name, first_release_date; limit 10;'
-    results = _igdb_api_request('games', query_body)
+    client_id = get_setting('igdb_client_id')
+    client_secret = get_setting('igdb_client_secret')
 
+    if not client_id or not client_secret or client_id == 'YOUR_IGDB_CLIENT_ID':
+        flash("IGDB credentials not set in Settings.", "warning")
+        return jsonify({"error": "IGDB credentials not set."}), 400
+
+    # Use the unified core function for the API call
+    metadata, image_urls = fetch_igdb_data(query, system, lambda m, t=None: print(f"[{t or 'INFO'}] {m}"), client_id, client_secret)
+
+    # The web UI expects a specific format, so we reformat the results here
     formatted_results = []
-    if results:
-        for game in results:
-            cover_url = None
-            # Check for 'cover' and 'image_id'
-            if 'cover' in game and 'image_id' in game['cover']:
-                # Use our new helper function to get a 'cover_big' sized image
-                # You can change "cover_big" to "cover_big_2x" for even larger results
-                cover_url = construct_igdb_image_url(game['cover']['image_id'], size="cover_big")
+    if metadata:
+        # Since the API returns one best match, we create a list with that one result
+        # This structure is what the 'edit_game.html' JavaScript expects
+        result_data = {
+            'name': metadata.get('developer', query), # The JS uses 'name' for the developer field
+            'cover_url': image_urls[0] if image_urls else None,
+            'platforms': system,
+            'release_date': metadata.get('release_year', 'N/A'),
+            # Pass along all data for the edit form to use
+            'full_metadata': metadata,
+            'image_urls': image_urls
+        }
+        
+        # The JS expects a list of results, even if there's only one
+        formatted_results.append(result_data)
 
-            platforms = "Unknown Platform"
-            if 'platforms' in game:
-                platform_names = [p['name'] for p in game['platforms'] if 'name' in p]
-                if platform_names:
-                    platforms = ", ".join(platform_names)
+    return jsonify(formatted_results)
 
-            formatted_results.append({
-                'id': game['id'],
-                'name': game['name'],
-                'cover_url': cover_url, # This will now be the larger URL
-                'platforms': platforms,
-                'release_date': datetime.fromtimestamp(game['first_release_date']).year if 'first_release_date' in game else 'N/A'
-            })
-    return json.dumps(formatted_results)
+@igdb_bp.route('/igdb_set_cover', methods=['POST'])
+def igdb_set_cover():
+    data = request.json
+    game_id = data.get('game_id')
+    image_url = data.get('image_url')
 
-@igdb_bp.route('/igdb_cover/<int:igdb_game_id>')
-def igdb_cover(igdb_game_id):
-    # This endpoint is specifically for fetching a single cover.
-    # We can also make this return a larger size.
-    query_body = f'fields image_id; where game = {igdb_game_id}; limit 1;' # Request image_id
-    results = _igdb_api_request('covers', query_body)
+    if not game_id or not image_url:
+        return jsonify({"error": "Missing game_id or image_url"}), 400
 
-    if results and results[0] and 'image_id' in results[0]:
-        # Return a cover_big_2x size for single cover fetches for maximum detail
-        return redirect(construct_igdb_image_url(results[0]['image_id'], size="cover_big_2x"))
-    return redirect(url_for('static', filename='placeholder.png'))
+    try:
+        # Use the unified core function to download the image and update the DB
+        new_path = download_and_set_cover_image(game_id, image_url, lambda m, t=None: print(f"[{t or 'INFO'}] {m}"))
+        return jsonify({"success": True, "new_path": new_path})
+    except Exception as e:
+        print(f"Error setting cover from IGDB: {e}")
+        return jsonify({"error": str(e)}), 500

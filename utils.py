@@ -1,35 +1,36 @@
 import os
 import json
-from flask import current_app # Import current_app because these functions need app.config
+# Import the Config class directly instead of relying on the Flask app context
+from config import Config
 
-def get_setting(key, default=None):
-    # These functions need to be able to access current_app.config['SETTINGS_FILE']
-    # If they are called from a Blueprint, current_app will be available.
-    # If called directly from run.py (e.g., init_db), then current_app might not be set,
-    # so we might pass the app instance directly if called outside a request context.
-    # For now, let's assume they are called within an app context.
-    settings_file = current_app.config['SETTINGS_FILE']
+def load_settings():
+    """Helper function to load settings from the JSON file, handling empty or corrupt files."""
+    # Get the settings file path directly from the Config object
+    settings_file = Config.SETTINGS_FILE
     if not os.path.exists(settings_file):
-        return default
+        return {}
     try:
         with open(settings_file, 'r') as f:
-            settings = json.load(f)
-        return settings.get(key, default)
-    except json.JSONDecodeError:
-        # Handle cases where settings.json might be empty or malformed
-        return default
+            content = f.read()
+            if not content: # Handle case where the file is empty
+                return {}
+            return json.loads(content)
+    except (json.JSONDecodeError, IOError):
+        # Handle cases where settings.json might be malformed or unreadable
+        return {}
 
+def get_setting(key, default=None):
+    """Gets a single value from the settings JSON file."""
+    settings = load_settings()
+    return settings.get(key, default)
 
 def set_setting(key, value):
-    settings_file = current_app.config['SETTINGS_FILE']
-    settings = {}
-    if os.path.exists(settings_file):
-        try:
-            with open(settings_file, 'r') as f:
-                settings = json.load(f)
-        except json.JSONDecodeError:
-            # If the file is malformed, start with an empty settings dict
-            pass
+    """Saves a single key-value pair to the settings JSON file."""
+    settings_file = Config.SETTINGS_FILE
+    settings = load_settings() # Use the robust loader
     settings[key] = value
-    with open(settings_file, 'w') as f:
-        json.dump(settings, f, indent=4)
+    try:
+        with open(settings_file, 'w') as f:
+            json.dump(settings, f, indent=4)
+    except IOError as e:
+        print(f"Error saving settings file: {e}")

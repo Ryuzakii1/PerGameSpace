@@ -13,17 +13,21 @@ import time
 import sys
 
 # --- UNIFIED CONFIGURATION IMPORT ---
+# This block intelligently loads settings from both the main web app config and the scanner's config.
 try:
     PACKAGE_PARENT = '..'
     SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
     sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, PACKAGE_PARENT)))
+
     from config import Config, basedir
     DATABASE_PATH = Config.DATABASE
     UPLOAD_FOLDER = Config.UPLOAD_FOLDER
     COVERS_FOLDER = Config.COVERS_FOLDER
     BASE_DIR = basedir
     print(f"Successfully imported top-level config. Database path is: {DATABASE_PATH}")
+
     from ..config import EMULATORS_FOLDER, EXTENSION_TO_SYSTEM, EMULATORS, SETTINGS_FILE
+    
 except ImportError as e:
     print(f"Failed to import unified config, falling back to scanner-only config: {e}")
     from ..config import DATABASE_PATH, UPLOAD_FOLDER, EMULATORS_FOLDER, EXTENSION_TO_SYSTEM, EMULATORS, SETTINGS_FILE, BASE_DIR, COVERS_FOLDER
@@ -33,11 +37,9 @@ try:
 except ImportError:
     py7zr = None
 
-# --- Global variable for IGDB access token and its expiry ---
 _IGDB_ACCESS_TOKEN = None
 _IGDB_TOKEN_EXPIRY = 0
 
-# --- IGDB API Functions ---
 def _get_igdb_token(log_callback, client_id, client_secret):
     global _IGDB_ACCESS_TOKEN, _IGDB_TOKEN_EXPIRY
     if _IGDB_ACCESS_TOKEN and time.time() < _IGDB_TOKEN_EXPIRY - 60:
@@ -56,23 +58,18 @@ def _get_igdb_token(log_callback, client_id, client_secret):
         raise
 
 def fetch_igdb_data(game_title, system_name, log_callback, client_id, client_secret):
-    """Fetches game metadata AND cover/artwork URLs from the IGDB API."""
     try:
         _get_igdb_token(log_callback, client_id, client_secret)
     except Exception:
         return None, []
-        
     headers = {'Client-ID': client_id, 'Authorization': f'Bearer {_IGDB_ACCESS_TOKEN}', 'Accept': 'application/json'}
     sanitized_title = game_title.replace('"', '')
-    # Expanded query to include cover and artworks
     query = (f'search "{sanitized_title}"; fields name, summary, genres.name, first_release_date, involved_companies.company.name, involved_companies.developer, involved_companies.publisher, cover.url, artworks.url; where platforms.name = "{system_name}"; limit 1;')
-    
     try:
         response = requests.post('https://api.igdb.com/v4/games', headers=headers, data=query.encode('utf-8'))
         response.raise_for_status()
         games = response.json()
         if not games: return None, []
-        
         game = games[0]
         metadata = {}
         if 'genres' in game and game['genres']: metadata['genre'] = game['genres'][0]['name']
@@ -82,23 +79,18 @@ def fetch_igdb_data(game_title, system_name, log_callback, client_id, client_sec
         publishers = [ic['company']['name'] for ic in game.get('involved_companies', []) if ic.get('publisher') and 'company' in ic and 'name' in ic['company']]
         if developers: metadata['developer'] = ", ".join(developers)
         if publishers: metadata['publisher'] = ", ".join(publishers)
-        
         image_urls = []
-        # Get the main cover art, preferring 1080p
         if 'cover' in game and 'url' in game['cover']:
             image_urls.append("https:" + game['cover']['url'].replace('t_thumb', 't_1080p'))
-        # Get additional artwork
         if 'artworks' in game:
             for art in game['artworks']:
                 if 'url' in art:
                     image_urls.append("https:" + art['url'].replace('t_thumb', 't_1080p'))
-
         return metadata, image_urls
     except requests.exceptions.RequestException as e:
         log_callback(f"IGDB API request failed: {e}", "error")
         return None, []
 
-# --- Database Functions ---
 def get_db_connection():
     db_path_obj = Path(DATABASE_PATH)
     db_path_obj.parent.mkdir(parents=True, exist_ok=True)
@@ -116,7 +108,7 @@ def get_db_connection():
         conn.execute('CREATE TABLE IF NOT EXISTS systems (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE)')
         conn.execute('CREATE TABLE IF NOT EXISTS emulator_configs (emulator_name TEXT PRIMARY KEY, emulator_path TEXT, install_type TEXT)')
         conn.commit()
-    else: # Schema migration
+    else:
         cursor = conn.cursor()
         cursor.execute("PRAGMA table_info(games)")
         columns = [column[1] for column in cursor.fetchall()]
@@ -125,7 +117,6 @@ def get_db_connection():
         conn.commit()
     return conn
 
-# --- Library Management Core Functions ---
 def get_all_games_from_db():
     conn = get_db_connection()
     games = conn.execute("SELECT * FROM games ORDER BY title").fetchall()
@@ -175,38 +166,24 @@ def set_game_cover_image(game_id, new_image_path):
     return str(dest_path)
 
 def download_and_set_cover_image(game_id, image_url, log_callback):
-    """Downloads an image from a URL and sets it as the cover for a game."""
     try:
         response = requests.get(image_url, stream=True, timeout=10)
         response.raise_for_status()
-        
-        # Determine file extension from URL
-        source_extension = Path(image_url.split('?')[0]).suffix
-        if not source_extension:
-            source_extension = ".jpg" # Default if no extension found
-
+        source_extension = Path(image_url.split('?')[0]).suffix or ".jpg"
         dest_filename = f"game_{game_id}{source_extension}"
         dest_path = Path(COVERS_FOLDER) / dest_filename
         os.makedirs(COVERS_FOLDER, exist_ok=True)
-        
         with open(dest_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        
-        log_callback(f"Downloaded cover to {dest_path}", "info")
-
+            for chunk in response.iter_content(chunk_size=8192): f.write(chunk)
         conn = get_db_connection()
         conn.execute("UPDATE games SET cover_image_path = ? WHERE id = ?", (str(dest_path), game_id))
         conn.commit()
         conn.close()
-        
         return str(dest_path)
     except requests.exceptions.RequestException as e:
         log_callback(f"Failed to download image from {image_url}: {e}", "error")
         raise
 
-
-# --- Game Scanner Functions ---
 def clean_game_title(filename):
     title = Path(filename).stem
     title = re.sub(r'\(.*?\)|\[.*?\]', '', title).strip().replace('_', ' ').replace('.', ' ')
@@ -264,6 +241,7 @@ def import_games(games_to_import, import_mode, log_callback):
                 if import_mode == 'copy': shutil.copy2(original_filepath, destination_path)
                 else: shutil.move(original_filepath, destination_path)
                 final_filepath = str(destination_path)
+            
             conn.execute("INSERT INTO games (title, system, filepath, original_filename, genre, release_year, developer, publisher, description, play_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                          (title, system, final_filepath, original_filename, game.get('genre'), game.get('release_year'), game.get('developer'), game.get('publisher'), game.get('description'), game.get('play_status')))
             conn.commit()
@@ -275,7 +253,6 @@ def import_games(games_to_import, import_mode, log_callback):
             yield {'filepath': original_filepath, 'success': False}
     conn.close()
 
-# --- Emulator Management Functions ---
 def _find_7zip_executable():
     if seven_z_path := shutil.which("7z"): return seven_z_path
     possible_paths = []
