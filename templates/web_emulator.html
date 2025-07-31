@@ -4,18 +4,15 @@
 
 {% block styles %}
     {{ super() }}
-    {# Link to the new dedicated CSS file for the emulator page #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/emulator.css') }}">
 {% endblock styles %}
 
-{# Override the header and footer blocks from base.html to create an immersive, focused view #}
 {% block header %}{% endblock header %}
 {% block footer %}{% endblock footer %}
 
 {% block content %}
 <div class="emulator-container">
     
-    {# --- Emulator Screen --- #}
     <div id="emulator-screen" class="emulator-screen">
         <canvas id="snes-canvas"></canvas> 
         <div id="loading-overlay" class="loading-overlay">
@@ -25,13 +22,15 @@
         </div>
     </div>
 
-    {# --- Game Title --- #}
     <div class="game-title-bar">
         <h2>Playing: {{ game.title }} ({{ game.system }})</h2>
-        <div id="statusMessage" class="status-message"></div>
+        <div class="status-bar">
+             {# New element for gamepad status #}
+            <span id="gamepad-status" class="gamepad-status-indicator"></span>
+            <div id="statusMessage" class="status-message"></div>
+        </div>
     </div>
 
-    {# --- Control Buttons --- #}
     <div class="controls-grid">
         <button id="playPauseButton" class="button">Pause</button>
         <button id="resetButton" class="button">Reset</button>
@@ -43,7 +42,6 @@
     </div>
 </div>
 
-{# --- Settings Panel (Hidden by default) --- #}
 <div id="settingsPanel" class="settings-panel">
     <div class="settings-panel-header">
         <h2>Emulator Settings</h2>
@@ -51,9 +49,7 @@
     </div>
     <div class="settings-panel-body">
         <h3>Key Bindings</h3>
-        <div id="keyBindingsList" class="key-bindings-grid">
-            {# Key binding elements will be populated here by JavaScript #}
-        </div>
+        <div id="keyBindingsList" class="key-bindings-grid"></div>
         <div class="settings-panel-actions">
             <button id="resetBindingsButton" class="button secondary">Reset to Defaults</button>
             <button id="saveBindingsButton" class="button primary">Save Settings</button>
@@ -61,11 +57,10 @@
     </div>
 </div>
 
-{# Hidden div to pass game data from Flask to JavaScript #}
 <div id="game-data-encoded" data-encoded-details="{{ encoded_game_details | safe }}" style="display: none;"></div>
 {% endblock content %}
 
 {% block scripts %}
-    {# We don't call super() here because the base notifications.js is not needed on this page #}
+    {# --- FIX: Load the new modularized JavaScript files --- #}
     <script type="module" src="{{ url_for('static', filename='js/emulator.js') }}"></script>
 {% endblock scripts %}
