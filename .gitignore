@@ -1,0 +1,14 @@
+# .gitignore for the project
+
+# Files to ignore
+igdb_token.json
+library.db
+api_config.json
+
+
+# Directories to ignore
+/uploads/
+/static/roms/
+/static/covers/
+/static/temp_uploads/
+/emulators/
