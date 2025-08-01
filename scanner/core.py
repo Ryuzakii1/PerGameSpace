@@ -5,10 +5,15 @@ import os
 import sqlite3
 import re
 import zipfile
-import shutil # For shutil.copy2, shutil.move, shutil.which
+import shutil # For shutil.copy2, shutil.move, shutil.which, shutil.rmtree
 import requests
 import subprocess # For calling external 7z.exe
 from pathlib import Path
+import json
+import time
+import uuid # For generating unique filenames
+from datetime import datetime
+from flask import current_app # For accessing app context
 
 # Try to import py7zr for .7z archives
 try:
@@ -16,9 +21,10 @@ try:
 except ImportError:
     py7zr = None # Set to None if not installed, handled gracefully
 
-from .config import DATABASE_PATH, UPLOAD_FOLDER, EMULATORS_FOLDER, EXTENSION_TO_SYSTEM, EMULATORS
+from .config import DATABASE_PATH, UPLOAD_FOLDER, COVERS_FOLDER, EMULATORS_FOLDER, EXTENSION_TO_SYSTEM, EMULATORS, Config
+from utils import get_effective_path, get_setting
 
-# --- Database Functions (from previous database.py) ---
+# --- Database Functions ---
 def get_db_connection():
     """Establishes a connection to the SQLite database."""
     if not os.path.exists(DATABASE_PATH):
@@ -27,7 +33,82 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# --- Game Scanner Functions (from previous game_scanner.py) ---
+def update_game_metadata_in_db(game_id, changes):
+    """Updates a game's metadata in the database."""
+    conn = get_db_connection()
+    try:
+        # Filter out fields with None values and construct the update query
+        update_fields = [f"{key} = ?" for key in changes.keys() if changes[key] is not None]
+        update_values = [value for value in changes.values() if value is not None]
+        update_values.append(game_id)
+        
+        query = f"UPDATE games SET {', '.join(update_fields)} WHERE id = ?"
+        conn.execute(query, tuple(update_values))
+        conn.commit()
+    except Exception as e:
+        print(f"Error updating game metadata: {e}")
+    finally:
+        conn.close()
+
+def get_all_games_from_db(system_name=None):
+    """Fetches all games from the database, optionally filtered by system."""
+    conn = get_db_connection()
+    if system_name:
+        games = conn.execute("SELECT * FROM games WHERE system = ? ORDER BY title", (system_name,)).fetchall()
+    else:
+        games = conn.execute("SELECT * FROM games ORDER BY title").fetchall()
+    conn.close()
+    return games
+
+def delete_games_from_db(game_ids, log_callback):
+    """
+    Deletes games from the database and removes their associated files from disk.
+    Handles both single files and folders.
+    """
+    if not game_ids:
+        return
+        
+    conn = get_db_connection()
+    if not conn:
+        log_callback("Could not connect to database for deletion.", "error")
+        return
+
+    try:
+        placeholders = ','.join('?' for _ in game_ids)
+        # Fetch file and cover paths for deletion
+        files_to_delete = conn.execute(f"SELECT filepath, cover_image_path FROM games WHERE id IN ({placeholders})", game_ids).fetchall()
+        
+        for file_entry in files_to_delete:
+            # Delete the game file or directory from disk
+            filepath = file_entry['filepath']
+            if filepath and os.path.exists(filepath):
+                if os.path.isdir(filepath):
+                    shutil.rmtree(filepath)
+                    log_callback(f"Deleted game directory: {filepath}")
+                else:
+                    os.remove(filepath)
+                    log_callback(f"Deleted game file: {filepath}")
+            
+            # Delete the cover image if it exists
+            cover_image_path = file_entry['cover_image_path']
+            if cover_image_path:
+                cover_path = os.path.join(COVERS_FOLDER, cover_image_path)
+                if os.path.exists(cover_path):
+                    os.remove(cover_path)
+                    log_callback(f"Deleted cover image: {cover_path}")
+
+        # Delete the records from the database
+        conn.execute(f"DELETE FROM games WHERE id IN ({placeholders})", game_ids)
+        conn.commit()
+        log_callback(f"Successfully deleted {len(game_ids)} game(s) from the database.", "success")
+        
+    except Exception as e:
+        log_callback(f"Error during game deletion: {e}", "error")
+    finally:
+        if conn:
+            conn.close()
+
+# --- Game Scanner Functions ---
 def clean_game_title(filename):
     """Cleans up a filename to create a more readable game title."""
     title = Path(filename).stem
@@ -99,7 +180,7 @@ def import_games(games_to_import, import_mode, log_callback):
                 safe_system = "".join(c for c in system if c.isalnum() or c in (' ', '_')).strip().replace(' ', '_')
                 safe_title = Path(original_filepath).stem
                 extract_path = Path(UPLOAD_FOLDER) / safe_system / safe_title
-                log_callback(f"   -> Extracting to {extract_path}")
+                log_callback(f"  -> Extracting to {extract_path}")
                 os.makedirs(extract_path, exist_ok=True)
                 with zipfile.ZipFile(original_filepath, 'r') as zf:
                     zf.extract(game['rom_in_zip'], extract_path)
@@ -113,7 +194,7 @@ def import_games(games_to_import, import_mode, log_callback):
                     os.makedirs(destination_dir, exist_ok=True)
                     destination_path = destination_dir / original_filename
                     
-                    log_callback(f"   -> {import_mode.capitalize()}ing to {destination_path}")
+                    log_callback(f"  -> {import_mode.capitalize()}ing to {destination_path}")
                     if import_mode == 'copy':
                         shutil.copy2(original_filepath, destination_path)
                     else: # move
@@ -123,25 +204,164 @@ def import_games(games_to_import, import_mode, log_callback):
                     log_callback(f"Processing File (reference): {original_filename}")
                     final_filepath = original_filepath
 
-            log_callback(f"   -> Adding '{title}' to database...")
+            log_callback(f"  -> Adding '{title}' to database...")
             conn.execute("INSERT INTO games (title, system, filepath, original_filename) VALUES (?, ?, ?, ?)", (title, system, final_filepath, original_filename))
             conn.commit()
-            log_callback(f"   -> Successfully imported.")
+            log_callback(f"  -> Successfully imported.")
             imported_count += 1
             yield {'filepath': original_filepath, 'success': True}
 
         except sqlite3.IntegrityError:
-            log_callback(f"   -> ERROR: Game with this path already exists.", "error")
+            log_callback(f"  -> ERROR: Game with this path already exists.", "error")
             yield {'filepath': original_filepath, 'success': False}
         except Exception as e:
-            log_callback(f"   -> ERROR: An error occurred during import: {e}", "error")
+            log_callback(f"  -> ERROR: An error occurred during import: {e}", "error")
             yield {'filepath': original_filepath, 'success': False}
     
     conn.close()
     log_callback(f"--- Import Complete: {imported_count} games added. ---")
 
-# --- Emulator Management Functions (from previous emulator_manager.py) ---
+# --- IGDB Functions ---
+def _get_igdb_token(client_id, client_secret, log_callback):
+    """
+    Retrieves and caches a Twitch/IGDB access token.
+    Uses a cache file to avoid re-authenticating on every request.
+    """
+    token_file = Path(DATABASE_PATH).parent / 'igdb_token.json'
+    
+    # Check for an existing, non-expired token
+    if token_file.exists():
+        try:
+            with open(token_file, 'r') as f:
+                data = json.load(f)
+            # Ensure token is not within 1 hour of expiration
+            if data['expires_at'] > time.time():
+                return data['access_token']
+        except (json.JSONDecodeError, KeyError):
+            pass # File is corrupt or invalid, proceed to request a new token
 
+    log_callback(f"Requesting new IGDB access token...", "info")
+    try:
+        twitch_url = f'https://id.twitch.tv/oauth2/token?client_id={client_id}&client_secret={client_secret}&grant_type=client_credentials'
+        response = requests.post(twitch_url, timeout=10)
+        response.raise_for_status()
+        token_data = response.json()
+        
+        access_token = token_data['access_token']
+        expires_in = token_data['expires_in']
+        
+        # Cache the new token with an expiration timestamp
+        expires_at = time.time() + expires_in - 3600 # Subtract an hour to be safe
+        with open(token_file, 'w') as f:
+            json.dump({'access_token': access_token, 'expires_at': expires_at}, f)
+        
+        return access_token
+    except Exception as e:
+        log_callback(f"Error fetching IGDB access token: {e}", "error")
+        return None
+
+def _save_cover_image(game_id, image_data):
+    """Helper to save image data to a file using a consistent naming scheme and returns the filename."""
+    effective_covers_folder = get_effective_path(Config.CUSTOM_COVERS_FOLDER_SETTING_KEY, 'COVERS_FOLDER')
+    if not effective_covers_folder:
+        raise Exception("Covers folder not configured in settings.")
+        
+    os.makedirs(effective_covers_folder, exist_ok=True)
+    
+    # Use a unique filename to prevent conflicts
+    filename = f"game_{game_id}_{int(time.time())}.jpg"
+    filepath = os.path.join(effective_covers_folder, filename)
+    
+    with open(filepath, 'wb') as f:
+        f.write(image_data)
+        
+    return filename
+
+def _delete_old_cover(game_id, conn):
+    """Deletes the old cover image file from the disk if it exists."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT cover_image_path FROM games WHERE id = ?", (game_id,))
+    result = cursor.fetchone()
+    
+    if result and result['cover_image_path']:
+        old_cover_filename = result['cover_image_path']
+        effective_covers_folder = get_effective_path(Config.CUSTOM_COVERS_FOLDER_SETTING_KEY, 'COVERS_FOLDER')
+        old_cover_path = os.path.join(effective_covers_folder, old_cover_filename)
+        
+        if os.path.exists(old_cover_path):
+            try:
+                os.remove(old_cover_path)
+                return True
+            except Exception as e:
+                current_app.logger.error(f"Failed to delete old cover art at {old_cover_path}: {e}")
+                return False
+    return False
+
+def fetch_igdb_data(game_title, system_name, log_callback, client_id, client_secret):
+    """
+    Searches IGDB for game metadata based on title and system.
+    Returns a dictionary of metadata and a list of cover image URLs.
+    """
+    # NOTE: This function is defined in igdb.py in the new structure
+    pass
+
+def download_and_set_cover_image(game_id, image_url, log_callback):
+    """Downloads an image from a URL and updates the game's cover in the database."""
+    conn = get_db_connection()
+    if not conn:
+        log_callback("Could not connect to database for cover update.", "error")
+        raise Exception("Database connection failed.")
+    
+    try:
+        # Delete the old cover before downloading the new one
+        _delete_old_cover(game_id, conn)
+
+        response = requests.get(image_url, stream=True)
+        response.raise_for_status()
+        
+        new_cover_filename = _save_cover_image(game_id, response.content)
+        
+        # CHANGED: Update 'cover_image_path' column, not 'cover_url'
+        conn.execute("UPDATE games SET cover_image_path = ? WHERE id = ?", (new_cover_filename, game_id))
+        conn.commit()
+        log_callback(f"Updated cover for game {game_id} to {new_cover_filename}", "success")
+        return new_cover_filename
+        
+    except Exception as e:
+        log_callback(f"Error downloading or saving cover: {e}", "error")
+        raise
+    finally:
+        if conn:
+            conn.close()
+
+def set_game_cover_image(game_id, temp_filepath):
+    """Saves a custom uploaded cover image and updates the game's database record."""
+    conn = get_db_connection()
+    if not conn:
+        raise Exception("Database connection failed.")
+    
+    try:
+        # Delete the old cover before saving the new one
+        _delete_old_cover(game_id, conn)
+
+        with open(temp_filepath, 'rb') as f:
+            image_data = f.read()
+
+        new_cover_filename = _save_cover_image(game_id, image_data)
+
+        # Update the database
+        conn.execute('UPDATE games SET cover_image_path = ? WHERE id = ?', (new_cover_filename, game_id))
+        conn.commit()
+        return new_cover_filename
+    except Exception as e:
+        current_app.logger.error(f"Error setting custom cover for game ID {game_id}: {e}")
+        raise
+    finally:
+        if conn:
+            conn.close()
+
+
+# --- Emulator Management Functions ---
 # Helper function to find 7z.exe
 def _find_7zip_executable():
     """Tries to find the 7z.exe command-line tool."""
@@ -193,7 +413,6 @@ def get_emulator_statuses():
                     status = "Installed"
                 else:
                     status = "Path Invalid"
-            # If type is 'web' or other, it remains "Not Installed" from the desktop app's perspective
         
         statuses[name] = {"status": status, "path": path, "url": data['url'], "systems": data['systems']}
     return statuses
@@ -203,7 +422,7 @@ def save_emulator_path_to_db(emulator_name, emulator_path, install_type, log_cal
     try:
         conn = get_db_connection()
         conn.execute("INSERT OR REPLACE INTO emulator_configs (emulator_name, emulator_path, install_type) VALUES (?, ?, ?)", 
-                     (emulator_name, emulator_path, install_type))
+                      (emulator_name, emulator_path, install_type))
         conn.commit()
         conn.close()
         log_callback(f"Database: Saved '{emulator_name}' path: {emulator_path} (type: {install_type}).", "info")

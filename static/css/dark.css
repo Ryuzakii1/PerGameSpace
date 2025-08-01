@@ -1,106 +1,206 @@
-/* static/css/dark.css */
+/*
+ * dark.css - Theme for the web application's dark mode.
+ *
+ * This file contains all the necessary styles to apply a consistent dark
+ * theme across the application's main UI elements and form controls.
+ */
 
+/* --- CSS Variables for consistent theming --- */
 :root {
     --bg-color: #2c2c2c;
-    --text-color: #f0f0f0;
-    --primary-color: #1a73e8; /* Google Blue */
-    --secondary-color: #6c757d; /* Muted Grey */
-    --danger-color: #dc3545; /* Bootstrap Red */
-    --link-color: #8ab4f8; /* Lighter blue for dark theme */
-    --link-hover-color: #a6caff;
-    --header-bg: #212121;
-    --footer-bg: #212121;
-    --border-color: #444;
-    --card-bg: #3c3c3c;
-    --button-text-color: #fff;
+    --text-color: #f1f1f1;
+    --primary-color: #007bff;
+    --secondary-color: #6c757d;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
 }
 
+/* --- Base Body and Typography Styles --- */
 body {
     background-color: var(--bg-color);
     color: var(--text-color);
+    font-family: Arial, sans-serif;
+    margin: 0;
 }
 
-header {
-    background-color: var(--header-bg);
+h1, h2, h3, h4, h5, h6 {
     color: var(--text-color);
-    border-bottom-color: var(--border-color);
+}
+
+/* --- Main Layout Sections --- */
+header {
+    background-color: #1e1e1e;
+    color: var(--text-color);
+    padding: 1rem 0;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 header h1 a {
     color: var(--text-color);
+    text-decoration: none;
 }
 
-header h1 a:hover {
-    color: var(--link-hover-color);
+header nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+}
+
+header nav ul li {
+    margin-right: 15px;
 }
 
 header nav ul li a {
-    color: var(--link-color);
+    color: var(--text-color);
+    text-decoration: none;
+    font-weight: bold;
 }
 
-header nav ul li a:hover {
-    color: var(--link-hover-color);
-}
-
-h2 {
-    border-bottom-color: var(--border-color);
+main {
+    padding: 2rem 0;
 }
 
 footer {
-    background-color: var(--footer-bg);
-    color: var(--text-color);
-    border-top-color: var(--border-color);
+    background-color: #1e1e1e;
+    color: #aaa;
+    text-align: center;
+    padding: 1rem 0;
+    margin-top: auto;
 }
 
-/* Buttons */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+/* --- Common UI Components --- */
+/* Button styles */
+.button {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: bold;
+    text-align: center;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
 .button.primary {
     background-color: var(--primary-color);
-    color: var(--button-text-color);
+    color: #fff;
 }
+
 .button.primary:hover {
-    background-color: #1565c0; /* Darker blue */
+    background-color: #0056b3;
 }
 
 .button.secondary {
     background-color: var(--secondary-color);
-    color: var(--button-text-color);
+    color: #fff;
 }
+
 .button.secondary:hover {
-    background-color: #5a6268; /* Darker grey */
+    background-color: #5a6268;
 }
 
 .button.danger {
     background-color: var(--danger-color);
-    color: var(--button-text-color);
+    color: #fff;
 }
+
 .button.danger:hover {
-    background-color: #c82333; /* Darker red */
+    background-color: #c82333;
 }
 
-/* Forms */
-.form-group input[type="text"],
-.form-group input[type="file"],
-.form-group input[type="password"],
-.form-group input[type="email"],
-.form-group select {
-    background-color: #4a4a4a;
-    color: var(--text-color);
-    border-color: var(--border-color);
-}
-
+/* --- Form Styling --- */
+/* The main form container */
 .form-fieldset {
-    border-color: var(--border-color);
+    border: 1px solid #555;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 25px;
 }
 
-/* Game Cards */
-.game-card, .game-detail-card, .dashboard-card {
-    background-color: var(--card-bg);
-    border-color: var(--border-color);
-}
-
-.game-card h3 a {
+/* The form container legend */
+.form-fieldset legend {
     color: var(--text-color);
+    font-weight: bold;
+    padding: 0 10px;
 }
-.game-card h3 a:hover {
-    color: var(--link-hover-color);
+
+/* General form group spacing */
+.form-group {
+    margin-bottom: 15px;
+}
+
+/* General label styles */
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+/* Custom file input styling */
+.form-group input[type="file"] {
+    background-color: #3e3e3e;
+    color: var(--text-color);
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+/* Button spacing within a form group */
+.form-group button {
+    margin-top: 5px;
+}
+
+/* --- Form Control Dark Mode Overrides --- */
+/* Override default browser styles for all common input types, text areas, and selects */
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="email"],
+textarea,
+select {
+    background-color: #333; /* A dark gray for the background */
+    color: #eee;            /* A light gray for the text */
+    border: 1px solid #555; /* A subtle, darker border */
+    transition: all 0.2s ease-in-out;
+}
+
+/* Style for when a form control is focused (clicked into) */
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+textarea:focus,
+select:focus {
+    background-color: #444; /* A slightly lighter background on focus */
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+/* Style the placeholder text */
+::placeholder {
+    color: #888;
+    opacity: 1; /* Ensures the placeholder is visible in Firefox */
+}
+
+/* Custom styling for the select dropdown arrow */
+select {
+    /* Hides the default browser arrow */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* Replaces it with a custom SVG arrow */
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23eee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
+    background-repeat: no-repeat;
+    background-position: right 0.7em top 50%;
+    background-size: 0.65em auto;
+    padding-right: 2.5em; /* Creates space for the custom arrow */
 }

@@ -13,7 +13,7 @@
 
     <div class="game-info-grid">
         <div class="game-cover">
-            <img src="{{ game.cover_url or url_for('static', filename='placeholder.png') }}" alt="Game Cover">
+            <img src="{{ url_for('static', filename='covers/' + game.cover_image_path) if game.cover_image_path else url_for('static', filename='placeholder.png') }}" alt="Game Cover">
         </div>
         <div class="game-details">
             {% if game.genre %}

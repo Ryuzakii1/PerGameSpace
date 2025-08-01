@@ -3,118 +3,314 @@
 {% block content %}
 <h2>Edit Game: {{ game.title }}</h2>
 <form method="POST" enctype="multipart/form-data">
-    <div class="form-group">
-        <label for="title">Game Title:</label>
-        <input type="text" id="title" name="title" value="{{ game.title }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="system">System:</label>
-        <select id="system" name="system">
-            {% for sys in systems %}
-                <option value="{{ sys.name }}" {% if sys.name == game.system %}selected{% endif %}>{{ sys.name }}</option>
-            {% endfor %}
-            <option value="">-- Select or Add New --</option>
-        </select>
-        <label for="new_system_name" class="label-inline">Or Add New System:</label>
-        <input type="text" id="new_system_name" name="new_system_name" placeholder="e.g., PS2, Nintendo Switch">
-    </div>
-
-    <div class="form-group">
-        <label for="game_file">Replace Game File (Optional):</label>
-        <input type="file" id="game_file" name="game_file">
-        <p class="file-info">Current file: {{ game.filepath.split('/')[-1].split('\\')[-1] }}</p>
-    </div>
-
-    <div class="form-group">
-      
-        {% if game.cover_url %}
-            <p class="file-info">Current cover:</p>
-            <img src="{{ game.cover_url }}" alt="Current Cover" class="current-cover-preview">
-            <label class="checkbox-label">
-                <input type="checkbox" name="clear_cover" value="true"> Clear current cover
-            </label>
-              <label for="cover_file">Replace Custom Cover Image (Optional):</label>
-        <input type="file" id="cover_file" name="cover_file" accept="image/*">
-        {% else %}
-            <p class="file-info">No current cover.</p>
-        {% endif %}
-    </div>
-
+    
     <fieldset class="form-fieldset">
-        <legend>Find New Cover on IGDB</legend>
+        <legend>File Information</legend>
         <div class="form-group">
-            <label for="igdb_search_query">Search Game Title on IGDB:</label>
-            <input type="text" id="igdb_search_query" name="igdb_search_query" placeholder="e.g., The Legend of Zelda: Ocarina of Time" value="{{ game.title }}" >
-            <button type="button" onclick="searchIgdb()">Search IGDB</button>
+            <p class="file-info"><strong>Current file:</strong> {{ game.filepath.split('/')[-1].split('\\')[-1] }}</p>
+            <label for="game_file">Replace Game File (Optional):</label>
+            <input type="file" id="game_file" name="game_file">
         </div>
-        <div id="igdb_results" class="game-grid" style="margin-top: 15px;">
-            </div>
-        <input type="hidden" id="igdb_cover_url" name="igdb_cover_url">
     </fieldset>
 
+    <fieldset class="form-fieldset">
+        <legend>Game Metadata</legend>
+        <div class="form-group">
+            <label for="title">Game Title:</label>
+            <input type="text" id="title" name="title" value="{{ game.title }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="system">System:</label>
+            <select id="system" name="system">
+                {% for sys in systems %}
+                    <option value="{{ sys.name }}" {% if sys.name == game.system %}selected{% endif %}>{{ sys.name }}</option>
+                {% endfor %}
+                <option value="">-- Select or Add New --</option>
+            </select>
+        </div>
+
+        <a href="#" id="metadata-toggle" class="metadata-toggle-link" onclick="toggleMetadata(event)">Expand &gt;</a>
+        
+        <div id="additional-metadata-fields" style="display: none;">
+            
+            <div class="form-group">
+                <label for="igdb_search_query_metadata" class="label-inline">Find on IGDB:</label>
+                <input type="text" id="igdb_search_query_metadata" name="igdb_search_query_metadata" placeholder="Search title for metadata" value="{{ game.title }}">
+                <button type="button" onclick="searchIgdbMetadata()">Get Metadata</button>
+            </div>
+            
+            <div class="form-group">
+                <label for="description">Description:</label>
+                <textarea id="description" name="description" rows="15" style="font-size: 1.1em; width: 100%;" placeholder="Game description...">{{ game.description or '' }}</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="genre">Genre:</label>
+                <input type="text" id="genre" name="genre" value="{{ game.genre or '' }}" placeholder="e.g., Action, RPG, Platform">
+            </div>
+
+            <div class="form-group">
+                <label for="release_year">Release Year:</label>
+                <input type="number" id="release_year" name="release_year" value="{{ game.release_year or '' }}" placeholder="e.g., 1996" min="1970" max="2030">
+            </div>
+
+            <div class="form-group">
+                <label for="developer">Developer:</label>
+                <input type="text" id="developer" name="developer" value="{{ game.developer or '' }}" placeholder="e.g., Nintendo">
+            </div>
+
+            <div class="form-group">
+                <label for="publisher">Publisher:</label>
+                <input type="text" id="publisher" name="publisher" value="{{ game.publisher or '' }}" placeholder="e.g., Nintendo">
+            </div>
+
+            <div class="form-group">
+                <label for="play_status">Play Status:</label>
+                <select id="play_status" name="play_status">
+                    <option value="Not Played" {% if game.play_status == 'Not Played' %}selected{% endif %}>Not Played</option>
+                    <option value="Playing" {% if game.play_status == 'Playing' %}selected{% endif %}>Currently Playing</option>
+                    <option value="Completed" {% if game.play_status == 'Completed' %}selected{% endif %}>Completed</option>
+                    <option value="On Hold" {% if game.play_status == 'On Hold' %}selected{% endif %}>On Hold</option>
+                    <option value="Dropped" {% if game.play_status == 'Dropped' %}selected{% endif %}>Dropped</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="new_system_name" class="label-inline">Or Add New System:</label>
+                <input type="text" id="new_system_name" name="new_system_name" placeholder="e.g., PS2, Nintendo Switch">
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset class="form-fieldset">
+        <legend>Cover Art</legend>
+        <div class="form-group">
+            {% if game.cover_image_path %}
+                <p class="file-info">Current cover:</p>
+                <img src="{{ url_for('static', filename='covers/' + game.cover_image_path) }}" alt="Current Cover" class="current-cover-preview" style="max-width: 200px; max-height: 300px;">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="clear_cover" value="true"> Clear current cover
+                </label>
+            {% else %}
+                <p class="file-info">No current cover.</p>
+                <img src="{{ url_for('static', filename='placeholder.png') }}" alt="No Cover Available" class="current-cover-preview" style="max-width: 200px; max-height: 300px;">
+            {% endif %}
+            <label for="cover_file" style="margin-top: 15px;">Replace with Custom Cover:</label>
+            <input type="file" id="cover_file" name="cover_file" accept="image/*">
+        </div>
+
+        <div class="form-group">
+            <label for="igdb_search_query_cover">Find New Cover on IGDB:</label>
+            <input type="text" id="igdb_search_query_cover" name="igdb_search_query_cover" placeholder="Search title for cover" value="{{ game.title }}">
+            <button type="button" onclick="searchIgdbCovers()">Search for Cover</button>
+        </div>
+        <div id="igdb_results" class="game-grid" style="margin-top: 15px;"></div>
+        <input type="hidden" id="igdb_cover_image_id" name="igdb_cover_image_id">
+    </fieldset>
+
+    <input type="hidden" id="igdb_metadata" name="igdb_metadata">
     <button type="submit" class="button primary">Update Game</button>
     <a href="{{ url_for('library.game_detail', game_id=game.id) }}" class="button secondary">Cancel</a>
 </form>
 
-<script>
-    async function searchIgdb() {
-        const query = document.getElementById('igdb_search_query').value;
-        const resultsDiv = document.getElementById('igdb_results');
-        resultsDiv.innerHTML = '<p>Searching...</p>';
-        document.getElementById('igdb_cover_url').value = ''; // Clear previous selection
+<style>
+.form-fieldset {
+    margin-bottom: 25px;
+}
+.metadata-toggle-link {
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: normal;
+    text-decoration: none;
+    color: #007bff; /* Adjust color as needed */
+    display: block; /* Make it a block to sit on its own line */
+    margin-top: 10px;
+}
+.selected-igdb-cover {
+    border: 3px solid #007bff !important;
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.5) !important;
+}
 
-        if (!query) {
+.game-card {
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.game-card:hover {
+    transform: scale(1.05);
+}
+
+.igdb-select-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.game-card:hover .igdb-select-overlay {
+    opacity: 1;
+}
+
+.current-cover-preview {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+</style>
+
+<script>
+function toggleMetadata(event) {
+    event.preventDefault();
+    const metadataFields = document.getElementById('additional-metadata-fields');
+    const toggleLink = document.getElementById('metadata-toggle');
+    if (metadataFields.style.display === 'none') {
+        metadataFields.style.display = 'block';
+        toggleLink.innerHTML = 'Collapse &lt;';
+    } else {
+        metadataFields.style.display = 'none';
+        toggleLink.innerHTML = 'Expand &gt;';
+    }
+}
+
+async function searchIgdb(mode) {
+    const metadataQuery = document.getElementById('igdb_search_query_metadata').value;
+    const coverQuery = document.getElementById('igdb_search_query_cover').value;
+    const query = mode === 'metadata' ? metadataQuery : coverQuery;
+    
+    const system = document.getElementById('system').value || '{{ game.system }}';
+    const resultsDiv = document.getElementById('igdb_results');
+    
+    if (mode === 'covers') {
+        resultsDiv.innerHTML = '<p>Searching IGDB...</p>';
+        document.getElementById('igdb_cover_image_id').value = '';
+    }
+
+    if (!query) {
+        if (mode === 'covers') {
             resultsDiv.innerHTML = '<p>Please enter a search query.</p>';
+        }
+        return;
+    }
+
+    try {
+        const url = "{{ url_for('igdb.igdb_search') }}?" + new URLSearchParams({
+            query: query,
+            system: system
+        });
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const games = await response.json();
+
+        if (games.error) {
+            if (mode === 'covers') {
+                resultsDiv.innerHTML = `<p>Error: ${games.error}</p>`;
+            }
             return;
         }
 
-        try {
-            const response = await fetch("{{ url_for('igdb.igdb_search') }}?query=" + encodeURIComponent(query));
-            const games = await response.json();
-
-            if (games.length === 0) {
+        if (!games || games.length === 0) {
+            if (mode === 'covers') {
                 resultsDiv.innerHTML = '<p>No results found on IGDB.</p>';
-                return;
             }
-
-            resultsDiv.innerHTML = '';
-            games.forEach(game => {
-                const gameCard = document.createElement('div');
-                gameCard.className = 'game-card'; // Reuse your game-card style
-                // Add a data-cover-url attribute to easily find the selected image later
-                gameCard.innerHTML = `
-                    <img src="${game.cover_url || '{{ url_for("static", filename="placeholder.png") }}'}" 
-                         alt="Cover" 
-                         style="cursor:pointer;" 
-                         onclick="selectIgdbCover(this, '${game.cover_url}')">
-                    <h3>${game.name}</h3>
-                    <p>${game.platforms} (${game.release_date})</p>
-                `;
-                resultsDiv.appendChild(gameCard);
-            });
-
-            if (games.length > 0) {
-                resultsDiv.innerHTML += '<p style="text-align: center; margin-top: 10px;">Click a cover to select it.</p>';
-            }
-
-        } catch (error) {
-            console.error('Error searching IGDB:', error);
-            resultsDiv.innerHTML = '<p>Error searching IGDB. Check console for details.</p>';
+            return;
         }
-    }
 
-    // Modified to accept the clicked image element and the cover URL
-    function selectIgdbCover(clickedImage, coverUrl) {
-        document.getElementById('igdb_cover_url').value = coverUrl;
+        if (mode === 'metadata') {
+            const bestMatch = games[0];
+            if (bestMatch && bestMatch.full_metadata) {
+                const metadata = bestMatch.full_metadata;
+                document.getElementById('title').value = bestMatch.name;
+                if (metadata.genre) document.getElementById('genre').value = metadata.genre;
+                if (metadata.release_year) document.getElementById('release_year').value = metadata.release_year;
+                if (metadata.developer) document.getElementById('developer').value = metadata.developer;
+                if (metadata.publisher) document.getElementById('publisher').value = metadata.publisher;
+                if (metadata.description) document.getElementById('description').value = metadata.description;
+                flashMessage('Metadata imported successfully!', 'success');
+            } else {
+                flashMessage('No metadata found for this game.', 'warning');
+            }
+            return;
+        }
 
-        // 1. Remove highlight from all other images
-        document.querySelectorAll('#igdb_results .game-card img').forEach(img => {
-            img.classList.remove('selected-igdb-cover');
+        resultsDiv.innerHTML = '';
+        games.forEach((game, index) => {
+            const gameCard = document.createElement('div');
+            gameCard.className = 'game-card';
+            gameCard.innerHTML = `
+                <img src="${game.cover_url || '{{ url_for("static", filename="placeholder.png") }}'}" 
+                     alt="Cover" 
+                     style="width: 150px; height: 200px; object-fit: cover; cursor: pointer;" 
+                     onclick="selectIgdbCover('${game.image_id}', ${index})">
+                <div class="igdb-select-overlay">Click to select</div>
+                <h3 style="margin: 10px 0 5px 0; font-size: 14px;">${game.name}</h3>
+                <p style="margin: 0; font-size: 12px; color: #666;">${game.platforms} (${game.release_date})</p>
+            `;
+            gameCard.setAttribute('data-game-data', JSON.stringify(game));
+            resultsDiv.appendChild(gameCard);
         });
 
-        // 2. Add highlight to the clicked image
-        clickedImage.classList.add('selected-igdb-cover');
+        if (games.length > 0) {
+            resultsDiv.innerHTML += '<p style="text-align: center; margin-top: 15px; font-style: italic;">Click a cover to select the game and import its metadata.</p>';
+        }
+
+    } catch (error) {
+        console.error('Error searching IGDB:', error);
+        if (mode === 'covers') {
+            resultsDiv.innerHTML = `<p>Error searching IGDB: ${error.message}</p>`;
+        }
     }
+}
+
+function searchIgdbMetadata() {
+    searchIgdb('metadata');
+}
+
+function searchIgdbCovers() {
+    searchIgdb('covers');
+}
+
+function selectIgdbCover(imageId, gameIndex) {
+    const gameCards = document.querySelectorAll('#igdb_results .game-card');
+    const selectedCard = gameCards[gameIndex];
+    const gameData = JSON.parse(selectedCard.getAttribute('data-game-data'));
+    
+    gameCards.forEach(card => {
+        card.querySelector('img').classList.remove('selected-igdb-cover');
+    });
+    
+    selectedCard.querySelector('img').classList.add('selected-igdb-cover');
+    
+    document.getElementById('igdb_cover_image_id').value = gameData.image_id || '';
+    
+    const overlay = selectedCard.querySelector('.igdb-select-overlay');
+    const originalText = overlay.textContent;
+    overlay.textContent = 'Selected!';
+    overlay.style.opacity = '1';
+    
+    setTimeout(() => {
+        overlay.textContent = originalText;
+        overlay.style.opacity = '0';
+    }, 2000);
+}
+
+function flashMessage(message, category) {
+    // This is a dummy function. Your notifications.js will handle the actual display.
+    console.log(`Flash message: [${category}] ${message}`);
+}
 </script>
 {% endblock %}

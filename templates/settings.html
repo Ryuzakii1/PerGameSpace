@@ -41,34 +41,103 @@
             </div>
         </fieldset>
 
-        {# CORRECTED: Emulator Paths Settings #}
+        {# File Storage Paths Settings (NEW) #}
         <fieldset class="bg-gray-800 rounded-lg shadow-xl p-6">
-            <legend class="text-2xl font-semibold text-white mb-4">Desktop Emulator Paths</legend>
+            <legend class="text-2xl font-semibold text-white mb-4">File Storage Paths</legend>
             <p class="text-gray-400 text-sm mb-4">
-                Configure the full path to the executable for each emulator program. Leave empty to clear a path.
+                Specify where game ROMs and cover images should be stored.
+                Leave empty to use default paths.
             </p>
-            {% if emulator_statuses %}
-                {% for name, data in emulator_statuses.items() %}
-                    {% set input_id = 'emulator_path_' + name.lower().replace(' ', '_') %}
-                    {% set input_name = input_id %}
-                    
-                    <div class="form-group mb-6">
-                        <label for="{{ input_id }}" class="block text-gray-300 text-sm font-bold mb-2">{{ name }} Path:</label>
-                        {% if data.systems %}
-                            <p class="text-gray-500 text-xs mb-1">Supports: {{ data.systems|join(', ') }}</p>
-                        {% endif %}
-                        <input type="text" id="{{ input_id }}" name="{{ input_name }}" 
-                               value="{{ data.path }}" 
-                               placeholder="Path to {{ name }} executable"
-                               class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 text-white">
-                    </div>
-                {% endfor %}
-            {% else %}
-                <p class="text-gray-400">No emulators found in the application configuration.</p>
-            {% endif %}
+            <div class="form-group mb-4">
+                <label for="custom_upload_folder" class="block text-gray-300 text-sm font-bold mb-2">Game ROMs Folder:</label>
+                <div class="flex items-center space-x-2">
+                    <input type="text" id="custom_upload_folder" name="custom_upload_folder" 
+                           value="{{ current_upload_folder }}" 
+                           placeholder="e.g., C:\Games\Roms"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 text-white">
+                    <button type="button" onclick="browseFolder('custom_upload_folder')" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Browse</button>
+                </div>
+                <p class="text-gray-500 text-xs mt-1">Default: <code>{{ default_upload_folder }}</code></p>
+            </div>
+            <div class="form-group mb-4">
+                <label for="custom_covers_folder" class="block text-gray-300 text-sm font-bold mb-2">Cover Images Folder:</label>
+                <div class="flex items-center space-x-2">
+                    <input type="text" id="custom_covers_folder" name="custom_covers_folder" 
+                           value="{{ current_covers_folder }}" 
+                           placeholder="e.g., C:\GameCovers"
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 text-white">
+                    <button type="button" onclick="browseFolder('custom_covers_folder')" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Browse</button>
+                </div>
+                <p class="text-gray-500 text-xs mt-1">Default: <code>{{ default_covers_folder }}</code></p>
+            </div>
+        </fieldset>
+
+        {# Emulator Paths Settings (Now as a collapsible fieldset) #}
+        <fieldset class="bg-gray-800 rounded-lg shadow-xl p-6">
+            <legend class="text-2xl font-semibold text-white flex justify-between items-center w-full">
+                <span>Desktop Emulator Paths</span>
+                <button type="button" onclick="toggleEmulatorPaths()" id="toggleEmulatorPathsBtn"
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
+                    <span id="emulatorPathsToggleIcon">&#9658;</span> </button>
+            </legend>
+            <div id="emulatorPathsContent" style="display: none;"> {# This div will be toggled #}
+                <p class="text-gray-400 text-sm mb-4">
+                    Configure the full path to the executable for each emulator program. Leave empty to clear a path.
+                </p>
+                {% if emulator_statuses %}
+                    {% for name, data in emulator_statuses.items() %}
+                        {% set input_id = 'emulator_path_' + name.lower().replace(' ', '_') %}
+                        {% set input_name = input_id %}
+                        
+                        <div class="form-group mb-6">
+                            <label for="{{ input_id }}" class="block text-gray-300 text-sm font-bold mb-2">{{ name }} Path:</label>
+                            {% if data.systems %}
+                                <p class="text-gray-500 text-xs mb-1">Supports: {{ data.systems|join(', ') }}</p>
+                            {% endif %}
+                            <input type="text" id="{{ input_id }}" name="{{ input_name }}" 
+                                   value="{{ data.path }}" 
+                                   placeholder="Path to {{ name }} executable"
+                                   class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-700 border-gray-600 text-white">
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-gray-400">No emulators found in the application configuration.</p>
+                {% endif %}
+            </div> {# End of emulatorPathsContent div #}
         </fieldset>
 
         <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">Save Settings</button>
     </form>
+
+    <script>
+        async function browseFolder(inputId) {
+            const inputField = document.getElementById(inputId);
+            try {
+                // This fetches from the new endpoint we'll create in settings.py
+                const response = await fetch("{{ url_for('settings.browse_directory') }}");
+                const data = await response.json();
+                if (data.selected_path) {
+                    inputField.value = data.selected_path;
+                }
+            } catch (error) {
+                console.error("Error Browse folder:", error);
+                alert("Could not open folder browser. This feature might only work on the desktop application or require specific browser permissions.");
+            }
+        }
+
+        function toggleEmulatorPaths() {
+            const content = document.getElementById('emulatorPathsContent');
+            const icon = document.getElementById('emulatorPathsToggleIcon'); // Get the icon span
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.innerHTML = '&#9660;'; // Down-pointing triangle
+            } else {
+                content.style.display = 'none';
+                icon.innerHTML = '&#9658;'; // Right-pointing triangle
+            }
+        }
+    </script>
 </div>
 {% endblock %}

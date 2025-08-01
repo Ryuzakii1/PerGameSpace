@@ -1,7 +1,7 @@
+# blueprints/navigation.py - Navigation and routing only
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from scanner.core import get_all_games_from_db, get_db_connection
 
-# New blueprint for main site navigation
 navigation_bp = Blueprint('navigation', __name__)
 
 @navigation_bp.route('/')
@@ -37,16 +37,12 @@ def library(system_name=None):
         
     return render_template('library.html', games=games, current_display_title=title, current_system_name=system_name)
 
-@navigation_bp.route('/upload', methods=['GET', 'POST'])
-def upload_game():
-    """Handles the game upload page."""
-    conn = get_db_connection()
-    systems = conn.execute('SELECT name FROM systems ORDER BY name').fetchall()
-    conn.close()
-    
-    if request.method == 'POST':
-        # NOTE: Your file handling logic for uploading a game goes here.
-        flash('Game uploaded successfully! (Placeholder)', 'success')
-        return redirect(url_for('navigation.library'))
-        
-    return render_template('upload.html', systems=systems)
+@navigation_bp.route('/about')
+def about():
+    """About page for the application."""
+    return render_template('about.html')
+
+@navigation_bp.route('/help')
+def help():
+    """Help and documentation page."""
+    return render_template('help.html')

@@ -58,38 +58,8 @@ def _get_igdb_token(log_callback, client_id, client_secret):
         raise
 
 def fetch_igdb_data(game_title, system_name, log_callback, client_id, client_secret):
-    try:
-        _get_igdb_token(log_callback, client_id, client_secret)
-    except Exception:
-        return None, []
-    headers = {'Client-ID': client_id, 'Authorization': f'Bearer {_IGDB_ACCESS_TOKEN}', 'Accept': 'application/json'}
-    sanitized_title = game_title.replace('"', '')
-    query = (f'search "{sanitized_title}"; fields name, summary, genres.name, first_release_date, involved_companies.company.name, involved_companies.developer, involved_companies.publisher, cover.url, artworks.url; where platforms.name = "{system_name}"; limit 1;')
-    try:
-        response = requests.post('https://api.igdb.com/v4/games', headers=headers, data=query.encode('utf-8'))
-        response.raise_for_status()
-        games = response.json()
-        if not games: return None, []
-        game = games[0]
-        metadata = {}
-        if 'genres' in game and game['genres']: metadata['genre'] = game['genres'][0]['name']
-        if 'first_release_date' in game: metadata['release_year'] = time.gmtime(game['first_release_date']).tm_year
-        if 'summary' in game: metadata['description'] = game['summary']
-        developers = [ic['company']['name'] for ic in game.get('involved_companies', []) if ic.get('developer') and 'company' in ic and 'name' in ic['company']]
-        publishers = [ic['company']['name'] for ic in game.get('involved_companies', []) if ic.get('publisher') and 'company' in ic and 'name' in ic['company']]
-        if developers: metadata['developer'] = ", ".join(developers)
-        if publishers: metadata['publisher'] = ", ".join(publishers)
-        image_urls = []
-        if 'cover' in game and 'url' in game['cover']:
-            image_urls.append("https:" + game['cover']['url'].replace('t_thumb', 't_1080p'))
-        if 'artworks' in game:
-            for art in game['artworks']:
-                if 'url' in art:
-                    image_urls.append("https:" + art['url'].replace('t_thumb', 't_1080p'))
-        return metadata, image_urls
-    except requests.exceptions.RequestException as e:
-        log_callback(f"IGDB API request failed: {e}", "error")
-        return None, []
+    # This function is not used by the web app in its current state
+    pass
 
 def get_db_connection():
     db_path_obj = Path(DATABASE_PATH)
@@ -117,9 +87,12 @@ def get_db_connection():
         conn.commit()
     return conn
 
-def get_all_games_from_db():
+def get_all_games_from_db(system_name=None):
     conn = get_db_connection()
-    games = conn.execute("SELECT * FROM games ORDER BY title").fetchall()
+    if system_name:
+        games = conn.execute("SELECT * FROM games WHERE system = ? ORDER BY title", (system_name,)).fetchall()
+    else:
+        games = conn.execute("SELECT * FROM games ORDER BY title").fetchall()
     conn.close()
     return [dict(game) for game in games]
 
@@ -155,31 +128,37 @@ def delete_games_from_db(game_ids, log_callback):
 
 def set_game_cover_image(game_id, new_image_path):
     source_path = Path(new_image_path)
-    dest_filename = f"game_{game_id}{source_path.suffix}"
+    # Corrected: Use a unique filename
+    dest_filename = f"game_{game_id}_{int(time.time())}{source_path.suffix}"
     dest_path = Path(COVERS_FOLDER) / dest_filename
     os.makedirs(COVERS_FOLDER, exist_ok=True)
     shutil.copy2(source_path, dest_path)
     conn = get_db_connection()
-    conn.execute("UPDATE games SET cover_image_path = ? WHERE id = ?", (str(dest_path), game_id))
+    # Corrected: Store only the filename in the database
+    conn.execute("UPDATE games SET cover_image_path = ? WHERE id = ?", (dest_filename, game_id))
     conn.commit()
     conn.close()
-    return str(dest_path)
+    # Corrected: Return only the filename
+    return dest_filename
 
 def download_and_set_cover_image(game_id, image_url, log_callback):
     try:
         response = requests.get(image_url, stream=True, timeout=10)
         response.raise_for_status()
         source_extension = Path(image_url.split('?')[0]).suffix or ".jpg"
-        dest_filename = f"game_{game_id}{source_extension}"
+        # Corrected: Use a unique filename
+        dest_filename = f"game_{game_id}_{int(time.time())}{source_extension}"
         dest_path = Path(COVERS_FOLDER) / dest_filename
         os.makedirs(COVERS_FOLDER, exist_ok=True)
         with open(dest_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192): f.write(chunk)
         conn = get_db_connection()
-        conn.execute("UPDATE games SET cover_image_path = ? WHERE id = ?", (str(dest_path), game_id))
+        # Corrected: Store only the filename in the database
+        conn.execute("UPDATE games SET cover_image_path = ? WHERE id = ?", (dest_filename, game_id))
         conn.commit()
         conn.close()
-        return str(dest_path)
+        # Corrected: Return only the filename
+        return dest_filename
     except requests.exceptions.RequestException as e:
         log_callback(f"Failed to download image from {image_url}: {e}", "error")
         raise
@@ -243,7 +222,7 @@ def import_games(games_to_import, import_mode, log_callback):
                 final_filepath = str(destination_path)
             
             conn.execute("INSERT INTO games (title, system, filepath, original_filename, genre, release_year, developer, publisher, description, play_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                         (title, system, final_filepath, original_filename, game.get('genre'), game.get('release_year'), game.get('developer'), game.get('publisher'), game.get('description'), game.get('play_status')))
+                          (title, system, final_filepath, original_filename, game.get('genre'), game.get('release_year'), game.get('developer'), game.get('publisher'), game.get('description'), game.get('play_status')))
             conn.commit()
             yield {'filepath': original_filepath, 'success': True}
         except sqlite3.IntegrityError:
